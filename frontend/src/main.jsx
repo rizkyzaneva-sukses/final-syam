@@ -4,8 +4,11 @@ import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
 import Login from './pages/Login';
 import MasterControl from './pages/MasterControl';
 import OrderDetail from './pages/OrderDetail';
-import Workspace from './pages/Workspace';
 import ModuleDashboard from './pages/ModuleDashboard';
+import CMOHome from './pages/CMOHome';
+import CustomerList from './pages/CustomerList';
+import OrderList from './pages/OrderList';
+import OrderCreate from './pages/OrderCreate';
 import Layout from './components/Layout';
 import {getToken} from './api';
 import './styles.css';
@@ -17,6 +20,10 @@ function App(){return <BrowserRouter><Routes>
     <Route index element={<Navigate to="/master" replace/>}/>
     <Route path="master" element={<MasterControl/>}/>
     <Route path="orders/:orderId" element={<OrderDetail/>}/>
+    <Route path="cmo" element={<CMOHome/>}/>
+    <Route path="cmo/customers" element={<CustomerList/>}/>
+    <Route path="cmo/orders" element={<OrderList/>}/>
+    <Route path="cmo/orders/new" element={<OrderCreate/>}/>
     <Route path="workspace/:name" element={<ModuleDashboard/>}/>
   </Route>
 </Routes></BrowserRouter>}

@@ -1,12 +1,12 @@
 import React,{useEffect,useState} from 'react';
 import {Outlet,NavLink,useNavigate} from 'react-router-dom';
-import {Home,Database,ShoppingCart,DollarSign,Factory,Users,Crown,ClipboardList,AlertTriangle,LogOut,Menu,X} from 'lucide-react';
+import {Home,Database,ShoppingCart,DollarSign,Factory,Users,Crown,ClipboardList,AlertTriangle,LogOut,Menu,X,Package} from 'lucide-react';
 import {api,clearToken} from '../api';
 
 const roleMenus={
   CEO:[['Master Control','/master',Database],['CEO Control','/workspace/CEO',Crown],['CMO Summary','/workspace/CMO',ShoppingCart],['CFO Summary','/workspace/CFO',DollarSign],['COO Summary','/workspace/COO',Factory],['CHRO Summary','/workspace/CHRO',Users]],
-  CMO_MANAGER:[['CMO Home','/workspace/CMO',Home],['Order Management','/workspace/CMO',ShoppingCart],['Master Control','/master',Database]],
-  CMO_SUPPORT:[['CMO Home','/workspace/CMO',Home],['Order Management','/workspace/CMO',ShoppingCart],['Master Control','/master',Database]],
+  CMO_MANAGER:[['CMO Home','/cmo',Home],['Order Management','/cmo/orders',ShoppingCart],['Customer / Buyer','/cmo/customers',Users],['Master Control','/master',Database]],
+  CMO_SUPPORT:[['CMO Home','/cmo',Home],['Order Management','/cmo/orders',ShoppingCart],['Customer / Buyer','/cmo/customers',Users],['Master Control','/master',Database]],
   CFO_MANAGER:[['CFO Home','/workspace/CFO',Home],['Finance & Purchasing','/workspace/CFO',DollarSign],['Master Control','/master',Database]],
   FINANCE_SUPPORT:[['Finance Home','/workspace/CFO',Home],['Master Control','/master',Database]],
   COO_MANAGER:[['COO Home','/workspace/COO',Home],['Production','/workspace/COO',Factory],['Master Control','/master',Database]],

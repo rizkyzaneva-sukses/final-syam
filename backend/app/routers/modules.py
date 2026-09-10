@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -21,6 +20,34 @@ def customers(db:Session=Depends(get_db), user=Depends(get_current_user)):
 @router.post("/cmo/customers")
 def create_customer(data:CustomerIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER,models.Role.CMO_SUPPORT))):
     x=models.Customer(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); return x
+
+class CustomerUpdate(BaseModel):
+    name:Optional[str]=None; country:Optional[str]=None; contact_name:Optional[str]=None; contact_info:Optional[str]=None; notes:Optional[str]=None
+
+@router.patch("/cmo/customers/{customer_id}")
+def update_customer(customer_id:int, data:CustomerUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER,models.Role.CMO_SUPPORT))):
+    x=db.query(models.Customer).filter(models.Customer.id==customer_id).first()
+    if not x: raise HTTPException(404,"Customer not found")
+    for k,v in data.model_dump(exclude_unset=True).items(): setattr(x,k,v)
+    db.commit(); db.refresh(x); return x
+
+@router.delete("/cmo/customers/{customer_id}")
+def delete_customer(customer_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER))):
+    x=db.query(models.Customer).filter(models.Customer.id==customer_id).first()
+    if not x: raise HTTPException(404,"Customer not found")
+    db.delete(x); db.commit(); return {"ok":True}
+
+class OrderUpdate(BaseModel):
+    buyer:Optional[str]=None; order_type:Optional[str]=None; buyer_deadline:Optional[date]=None
+    finance_status:Optional[str]=None; material_status:Optional[str]=None; shipment_status:Optional[str]=None
+    overall_status:Optional[str]=None; projected_shipment:Optional[date]=None; buffer_days:Optional[int]=None; notes:Optional[str]=None
+
+@router.patch("/orders/{order_id}")
+def update_order(order_id:str, data:OrderUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER,models.Role.CMO_SUPPORT,models.Role.COO_MANAGER))):
+    x=db.query(models.Order).filter(models.Order.order_id==order_id).first()
+    if not x: raise HTTPException(404,"Order not found")
+    for k,v in data.model_dump(exclude_unset=True).items(): setattr(x,k,v)
+    db.commit(); db.refresh(x); return x
 
 class MaterialIn(BaseModel):
     order_fk:int; item_name:str; qty:float; unit:Optional[str]=None; required_date:Optional[date]=None
@@ -82,7 +109,6 @@ class ShipmentGateIn(BaseModel):
 def shipment_gate(shipment_id:int, data:ShipmentGateIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CFO_MANAGER))):
     x=db.query(models.Shipment).filter(models.Shipment.id==shipment_id).first()
     if not x: raise HTTPException(404,"Shipment not found")
-    # Locked rule: outstanding shipment requires CEO approval before CLEAR/SHIPPED
     if float(x.outstanding_amount or 0) > 0 and data.finance_gate in ["CLEAR","SHIPPED"] and data.ceo_approval!="APPROVED":
         raise HTTPException(400,"Outstanding shipment requires CEO approval")
     x.finance_gate=data.finance_gate
