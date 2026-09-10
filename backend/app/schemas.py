@@ -1,10 +1,10 @@
 from datetime import date, datetime
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 from .models import Role, OrderType
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 class Token(BaseModel):
@@ -14,7 +14,7 @@ class Token(BaseModel):
 class UserOut(BaseModel):
     id: int
     name: str
-    email: EmailStr
+    email: str
     role: Role
     class Config:
         from_attributes = True

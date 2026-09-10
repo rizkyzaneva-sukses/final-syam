@@ -90,7 +90,3 @@ def dashboard(module: str, db: Session=Depends(get_db), user=Depends(get_current
     if m in ["SAMPLE","PRINTING","PRODUCTION","SHIPMENT"]:
         return {"module":m,"cards":[],"flows":["My Task","Update Progress","Exception / Note","History"]}
     raise HTTPException(404,"Unknown module")
-
-@router.get("/users")
-def list_users(db:Session=Depends(get_db), user=Depends(get_current_user)):
-    return [{"id":u.id,"name":u.name,"role":u.role.value} for u in db.query(models.User).filter(models.User.is_active==True).order_by(models.User.name).all()]

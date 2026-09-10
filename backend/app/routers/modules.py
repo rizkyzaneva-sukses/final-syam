@@ -161,6 +161,11 @@ def delete_task(task_id:int, db:Session=Depends(get_db), user=Depends(require_ro
     if not x: raise HTTPException(404,"Task not found")
     db.delete(x); db.commit(); return {"ok":True}
 
+
+@router.get("/users")
+def list_users(db:Session=Depends(get_db), user=Depends(get_current_user)):
+    return [{"id":u.id,"name":u.name,"role":u.role.value} for u in db.query(models.User).filter(models.User.is_active==True).order_by(models.User.name).all()]
+
 class ShipmentGateIn(BaseModel):
     finance_gate:str
     ceo_approval:Optional[str]=None
