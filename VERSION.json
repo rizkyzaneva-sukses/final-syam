@@ -1,0 +1,19 @@
+{
+  "version": "0.2",
+  "status": "ALL-IN MVP / DEVELOPER FOUNDATION",
+  "modules": [
+    "MASTER",
+    "CMO",
+    "CFO",
+    "COO",
+    "CHRO",
+    "CEO",
+    "PIC"
+  ],
+  "database": "PostgreSQL 16",
+  "deployment": [
+    "docker-compose local",
+    "docker-compose.prod + Caddy HTTPS"
+  ],
+  "important_rule": "Do not hard-code TBD/CONFIGURABLE rules."
+}

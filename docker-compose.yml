@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bos_syams}
+      POSTGRES_USER: ${POSTGRES_USER:-bos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bos}
+    volumes:
+      - bos_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bos} -d ${POSTGRES_DB:-bos_syams}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-bos}:${POSTGRES_PASSWORD:-bos}@db:5432/${POSTGRES_DB:-bos_syams}
+      SECRET_KEY: ${SECRET_KEY:-replace-me-before-production}
+      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-720}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  bos_pgdata:
