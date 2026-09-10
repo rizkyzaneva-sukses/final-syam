@@ -52,4 +52,19 @@ label input:focus,label select:focus,label textarea:focus{border-color:#3b82f6;b
 .badge.gray{background:#f1f5f9;color:#475569}
 @media(max-width:900px){.form-row,.form-grid,.form-grid3{grid-template-columns:1fr}.modal{width:100%;max-height:100vh;border-radius:0}}
 
+
+/* === Filter Bar === */
+.filter-bar{display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.filter-bar .search-bar{flex:1;min-width:200px}
+.filter-pills{display:flex;gap:6px}
+.pill{padding:5px 14px;border-radius:20px;border:1px solid #d1d5db;background:white;font-size:12px;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:.5px}
+.pill:hover{background:#f1f5f9}
+.pill.active{color:white;border-color:transparent}
+.pill.active.red{background:#dc2626}
+.pill.active.yellow{background:#eab308;color:#422006}
+.pill.active.open{background:#ef4444}
+.pill.active.in_progress{background:#f59e0b;color:#422006}
+.pill.active.done{background:#16a34a}
+.pill.active.cancelled{background:#6b7280}
+
 @media(max-width:900px){.sidebar{transform:translateX(-100%);transition:.2s;width:min(330px,78vw)}.sidebar.open{transform:translateX(0)}.main{margin-left:0}.menu-mobile{display:block;background:transparent;border:0;margin-right:12px}.close-mobile{display:block;position:absolute;right:14px;top:14px;background:transparent;border:0;color:#fff}.page{padding:18px}.cards,.cards.compact{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.topbar{padding:0 14px}.top-user{display:none}.article{grid-template-columns:1fr}.movement{display:grid;grid-template-columns:1fr}.move:after{content:'↓';right:auto;left:12px;top:auto;bottom:-4px}.caprow{grid-template-columns:100px 1fr 48px}}

@@ -73,6 +73,24 @@ def dashboard(module: str, db: Session=Depends(get_db), user=Depends(get_current
             ],
             "flows":["Company Health","Decision Needed","Cash & Collection","Production Today","Sales Opportunity","People Issue","CEO Action Tracker"]
         }
-    if m in ["SAMPLE","PRINTING","PRODUCTION","SHIPMENT","TASK","EXCEPTION"]:
+    if m == "TASK":
+        open_tasks = db.query(func.count(models.Task.id)).filter(models.Task.status=="OPEN").scalar() or 0
+        return {"module":"TASK","cards":[
+            {"label":"Open Tasks","value":open_tasks},
+            {"label":"Total Tasks","value":count(db,models.Task)},
+        ],"flows":["My Task","Update Progress","Exception / Note","History"]}
+    if m == "EXCEPTION":
+        reds = db.query(func.count(models.ExceptionItem.id)).filter(models.ExceptionItem.severity=="RED",models.ExceptionItem.status=="OPEN").scalar() or 0
+        yellows = db.query(func.count(models.ExceptionItem.id)).filter(models.ExceptionItem.severity=="YELLOW",models.ExceptionItem.status=="OPEN").scalar() or 0
+        return {"module":"EXCEPTION","cards":[
+            {"label":"RED Open","value":reds},
+            {"label":"YELLOW Open","value":yellows},
+            {"label":"Total Exception","value":count(db,models.ExceptionItem)},
+        ],"flows":["Identify Issue","Assign Owner","Action Required","Resolve & Close"]}
+    if m in ["SAMPLE","PRINTING","PRODUCTION","SHIPMENT"]:
         return {"module":m,"cards":[],"flows":["My Task","Update Progress","Exception / Note","History"]}
     raise HTTPException(404,"Unknown module")
+
+@router.get("/users")
+def list_users(db:Session=Depends(get_db), user=Depends(get_current_user)):
+    return [{"id":u.id,"name":u.name,"role":u.role.value} for u in db.query(models.User).filter(models.User.is_active==True).order_by(models.User.name).all()]

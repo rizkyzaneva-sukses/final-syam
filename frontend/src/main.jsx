@@ -9,6 +9,8 @@ import CMOHome from './pages/CMOHome';
 import CustomerList from './pages/CustomerList';
 import OrderList from './pages/OrderList';
 import OrderCreate from './pages/OrderCreate';
+import ExceptionPage from './pages/ExceptionPage';
+import TaskPage from './pages/TaskPage';
 import Layout from './components/Layout';
 import {getToken} from './api';
 import './styles.css';
@@ -24,6 +26,8 @@ function App(){return <BrowserRouter><Routes>
     <Route path="cmo/customers" element={<CustomerList/>}/>
     <Route path="cmo/orders" element={<OrderList/>}/>
     <Route path="cmo/orders/new" element={<OrderCreate/>}/>
+    <Route path="exceptions" element={<ExceptionPage/>}/>
+    <Route path="tasks" element={<TaskPage/>}/>
     <Route path="workspace/:name" element={<ModuleDashboard/>}/>
   </Route>
 </Routes></BrowserRouter>}

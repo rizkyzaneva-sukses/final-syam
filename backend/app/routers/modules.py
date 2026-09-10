@@ -101,6 +101,66 @@ def decisions(db:Session=Depends(get_db), user=Depends(require_roles(models.Role
 def create_decision(data:DecisionIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CEO))):
     x=models.CEODecision(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); return x
 
+class ExceptionIn(BaseModel):
+    order_fk:Optional[int]=None; severity:str="YELLOW"; category:str; title:str
+    owner_role:Optional[str]=None; owner_name:Optional[str]=None
+    due_date:Optional[date]=None; next_action:Optional[str]=None
+
+@router.get("/exceptions")
+def list_exceptions(db:Session=Depends(get_db), user=Depends(get_current_user)):
+    return db.query(models.ExceptionItem).order_by(desc(models.ExceptionItem.id)).all()
+
+@router.post("/exceptions")
+def create_exception(data:ExceptionIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER,models.Role.COO_MANAGER,models.Role.CEO,models.Role.CMO_SUPPORT))):
+    x=models.ExceptionItem(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); return x
+
+class ExceptionUpdate(BaseModel):
+    severity:Optional[str]=None; category:Optional[str]=None; title:Optional[str]=None
+    owner_role:Optional[str]=None; owner_name:Optional[str]=None
+    due_date:Optional[date]=None; next_action:Optional[str]=None; status:Optional[str]=None
+
+@router.patch("/exceptions/{exc_id}")
+def update_exception(exc_id:int, data:ExceptionUpdate, db:Session=Depends(get_db), user=Depends(get_current_user)):
+    x=db.query(models.ExceptionItem).filter(models.ExceptionItem.id==exc_id).first()
+    if not x: raise HTTPException(404,"Exception not found")
+    for k,v in data.model_dump(exclude_unset=True).items(): setattr(x,k,v)
+    db.commit(); db.refresh(x); return x
+
+@router.delete("/exceptions/{exc_id}")
+def delete_exception(exc_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CEO))):
+    x=db.query(models.ExceptionItem).filter(models.ExceptionItem.id==exc_id).first()
+    if not x: raise HTTPException(404,"Exception not found")
+    db.delete(x); db.commit(); return {"ok":True}
+
+class TaskIn(BaseModel):
+    title:str; assigned_to_id:Optional[int]=None; order_fk:Optional[int]=None
+    due_date:Optional[date]=None
+
+@router.get("/tasks")
+def list_tasks(db:Session=Depends(get_db), user=Depends(get_current_user)):
+    return db.query(models.Task).order_by(desc(models.Task.id)).all()
+
+@router.post("/tasks")
+def create_task(data:TaskIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER,models.Role.COO_MANAGER,models.Role.CEO,models.Role.CMO_SUPPORT))):
+    x=models.Task(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); return x
+
+class TaskUpdate(BaseModel):
+    title:Optional[str]=None; assigned_to_id:Optional[int]=None; order_fk:Optional[int]=None
+    due_date:Optional[date]=None; status:Optional[str]=None
+
+@router.patch("/tasks/{task_id}")
+def update_task(task_id:int, data:TaskUpdate, db:Session=Depends(get_db), user=Depends(get_current_user)):
+    x=db.query(models.Task).filter(models.Task.id==task_id).first()
+    if not x: raise HTTPException(404,"Task not found")
+    for k,v in data.model_dump(exclude_unset=True).items(): setattr(x,k,v)
+    db.commit(); db.refresh(x); return x
+
+@router.delete("/tasks/{task_id}")
+def delete_task(task_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CEO))):
+    x=db.query(models.Task).filter(models.Task.id==task_id).first()
+    if not x: raise HTTPException(404,"Task not found")
+    db.delete(x); db.commit(); return {"ok":True}
+
 class ShipmentGateIn(BaseModel):
     finance_gate:str
     ceo_approval:Optional[str]=None
