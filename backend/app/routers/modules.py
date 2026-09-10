@@ -166,6 +166,37 @@ def delete_task(task_id:int, db:Session=Depends(get_db), user=Depends(require_ro
 def list_users(db:Session=Depends(get_db), user=Depends(get_current_user)):
     return [{"id":u.id,"name":u.name,"role":u.role.value} for u in db.query(models.User).filter(models.User.is_active==True).order_by(models.User.name).all()]
 
+class MaterialRequestUpdate(BaseModel):
+    item_name:Optional[str]=None; qty:Optional[float]=None; unit:Optional[str]=None
+    status:Optional[str]=None; required_date:Optional[date]=None
+
+@router.patch("/coo/material-requests/{mr_id}")
+def update_material_request(mr_id:int, data:MaterialRequestUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.COO_MANAGER,models.Role.PRODUCTION_PIC))):
+    x=db.query(models.MaterialRequest).filter(models.MaterialRequest.id==mr_id).first()
+    if not x: raise HTTPException(404,"Material request not found")
+    for k,v in data.model_dump(exclude_unset=True).items(): setattr(x,k,v)
+    db.commit(); db.refresh(x); return x
+
+@router.delete("/coo/material-requests/{mr_id}")
+def delete_material_request(mr_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.COO_MANAGER))):
+    x=db.query(models.MaterialRequest).filter(models.MaterialRequest.id==mr_id).first()
+    if not x: raise HTTPException(404,"Material request not found")
+    db.delete(x); db.commit(); return {"ok":True}
+
+@router.get("/coo/movements")
+def list_movements(db:Session=Depends(get_db), user=Depends(get_current_user)):
+    return db.query(models.ProductionMovement).order_by(desc(models.ProductionMovement.id)).all()
+
+@router.get("/coo/wip-summary")
+def wip_summary(db:Session=Depends(get_db), user=Depends(get_current_user)):
+    from sqlalchemy import func
+    rows=db.query(models.ProductionMovement.process,
+        func.sum(models.ProductionMovement.qty_in).label("qty_in"),
+        func.sum(models.ProductionMovement.qty_done).label("qty_done"),
+        func.sum(models.ProductionMovement.qty_reject).label("qty_reject")
+    ).group_by(models.ProductionMovement.process).all()
+    return [{"process":r.process,"qty_in":int(r.qty_in or 0),"qty_done":int(r.qty_done or 0),"qty_reject":int(r.qty_reject or 0),"wip":int((r.qty_in or 0)-(r.qty_done or 0)-(r.qty_reject or 0))} for r in rows]
+
 class ShipmentGateIn(BaseModel):
     finance_gate:str
     ceo_approval:Optional[str]=None

@@ -1,6 +1,6 @@
 import React,{useEffect,useState} from 'react';
 import {Outlet,NavLink,useNavigate} from 'react-router-dom';
-import {Home,Database,ShoppingCart,DollarSign,Factory,Users,Crown,ClipboardList,AlertTriangle,LogOut,Menu,X,Package} from 'lucide-react';
+import {Home,Database,Package,ShoppingCart,DollarSign,Factory,Users,Crown,ClipboardList,AlertTriangle,LogOut,Menu,X} from 'lucide-react';
 import {api,clearToken} from '../api';
 
 const roleMenus={
@@ -9,7 +9,7 @@ const roleMenus={
   CMO_SUPPORT:[['CMO Home','/cmo',Home],['Order Management','/cmo/orders',ShoppingCart],['Customer / Buyer','/cmo/customers',Users],['Master Control','/master',Database]],
   CFO_MANAGER:[['CFO Home','/workspace/CFO',Home],['Finance & Purchasing','/workspace/CFO',DollarSign],['Master Control','/master',Database]],
   FINANCE_SUPPORT:[['Finance Home','/workspace/CFO',Home],['Master Control','/master',Database]],
-  COO_MANAGER:[['COO Home','/workspace/COO',Home],['Production','/workspace/COO',Factory],['Master Control','/master',Database]],
+  COO_MANAGER:[['COO Home','/coo',Home],['Material Requests','/coo/material-requests',Package],['Production Queue','/coo/production',Factory],['WIP Tracking','/coo/wip',Package],['Master Control','/master',Database]],
   SAMPLE_PIC:[['My Sample Tasks','/workspace/SAMPLE',ClipboardList],['Master Control','/master',Database]],
   PRINTING_PIC:[['My Printing Tasks','/workspace/PRINTING',ClipboardList],['Master Control','/master',Database]],
   PRODUCTION_PIC:[['My Tasks','/workspace/PRODUCTION',ClipboardList],['Master Control','/master',Database]],

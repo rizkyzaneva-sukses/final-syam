@@ -39,12 +39,14 @@ def dashboard(module: str, db: Session=Depends(get_db), user=Depends(get_current
             "flows":["Pricing & HPP","Invoice & Payment","AR/AP","Purchasing","Operational Cost","Attendance","Payroll & Team Bonus","Accounting","Cash Planning","Shipment Finance Gate","Financial Closing"]
         }
     if m == "COO":
+        mat_req_open = db.query(func.count(models.MaterialRequest.id)).filter(models.MaterialRequest.status.in_(["REQUESTED","ORDERED"])).scalar() or 0
+        movements_today = db.query(func.count(models.ProductionMovement.id)).scalar() or 0
         return {
             "module":"COO",
             "cards":[
+                {"label":"Material Request Open","value":mat_req_open},
+                {"label":"Production Movements","value":movements_today},
                 {"label":"SPK","value":count(db,models.SPK)},
-                {"label":"Material Request","value":count(db,models.MaterialRequest)},
-                {"label":"WIP Records","value":count(db,models.ProductionMovement)},
                 {"label":"QC Records","value":count(db,models.QCRecord)},
                 {"label":"Shipment","value":count(db,models.Shipment)},
             ],
