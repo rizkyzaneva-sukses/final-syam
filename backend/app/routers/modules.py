@@ -622,3 +622,48 @@ def outstanding_summary(db:Session=Depends(get_db), user=Depends(require_roles(m
             "outstanding": outstanding,
         })
     return result
+
+# ──────────── FLOW ENGINE ENDPOINTS ────────────
+from ..flow_engine import FlowEngine
+
+@router.get("/orders/{order_id}/flow")
+def get_order_flow(order_id: str, db: Session = Depends(get_db), user = Depends(get_current_user)):
+    """Returns flow definition + current step + progress + validation for next steps."""
+    order = db.query(models.Order).filter(models.Order.order_id == order_id).first()
+    if not order:
+        raise HTTPException(404, "Order not found")
+    order_type_val = order.order_type.value if hasattr(order.order_type, "value") else order.order_type
+    current_step = order.flow_step or "ORDER"
+    progress = FlowEngine.get_flow_progress(order_type_val, current_step)
+    # Validate which steps can be advanced to
+    next_steps = []
+    for step_info in progress["steps"]:
+        if step_info["key"] == current_step:
+            continue
+        ok, reason = FlowEngine.can_transition(order, step_info["key"])
+        next_steps.append({"step": step_info["key"], "label": step_info["label"], "can_advance": ok, "reason": reason})
+    return {
+        "order_id": order.order_id,
+        "order_type": order_type_val,
+        "current_step": current_step,
+        "current_label": FlowEngine.VALID_STEPS.get(order_type_val, []),
+        "progress": progress,
+        "next_steps": next_steps,
+    }
+
+class FlowAdvanceIn(BaseModel):
+    target_step: str
+
+@router.post("/orders/{order_id}/flow/advance")
+def advance_order_flow(order_id: str, data: FlowAdvanceIn, db: Session = Depends(get_db), user = Depends(get_current_user)):
+    """Advance order to target_step with validation."""
+    order = db.query(models.Order).filter(models.Order.order_id == order_id).first()
+    if not order:
+        raise HTTPException(404, "Order not found")
+    result = FlowEngine.advance(order, data.target_step, user=user)
+    return result
+
+@router.get("/flow-definitions")
+def flow_definitions(user = Depends(get_current_user)):
+    """Returns all three flow definitions with step labels (for frontend)."""
+    return FlowEngine.get_all_definitions()

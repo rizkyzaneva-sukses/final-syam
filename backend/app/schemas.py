@@ -60,10 +60,12 @@ class OrderOut(BaseModel):
     customer_close_status: str
     financial_close_status: str
     overall_status: str
+    flow_step: str = "ORDER"
     projected_shipment: Optional[date]
     buffer_days: Optional[int]
     notes: Optional[str]
     articles: List[ArticleOut] = []
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 

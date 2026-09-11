@@ -48,6 +48,7 @@ class Order(Base):
     customer_close_status = Column(String(32), default="OPEN", nullable=False)
     financial_close_status = Column(String(32), default="OPEN", nullable=False)
     overall_status = Column(String(32), default="NEW", nullable=False)
+    flow_step = Column(String(40), default="ORDER", nullable=False)
     projected_shipment = Column(Date, nullable=True)
     buffer_days = Column(Integer, nullable=True)
     notes = Column(Text, nullable=True)
