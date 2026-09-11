@@ -53,13 +53,14 @@ def dashboard(module: str, db: Session=Depends(get_db), user=Depends(get_current
             "flows":["Sample Process","SPK Queue","Production Planning","Material Gate","Production Queue","WIP","QC & Rework","Packing","Ready to Ship"]
         }
     if m == "CHRO":
+        active_emp = db.query(func.count(models.Employee.id)).filter(models.Employee.employment_status=="ACTIVE").scalar() or 0
         return {
             "module":"CHRO",
             "cards":[
-                {"label":"Employee","value":count(db,models.Employee)},
-                {"label":"Training","value":count(db,models.TrainingRecord)},
-                {"label":"Performance","value":count(db,models.PerformanceRecord)},
-                {"label":"People Issue","value":count(db,models.EmployeeIssue)},
+                {"label":"Active Employee","value":active_emp},
+                {"label":"Training Records","value":count(db,models.TrainingRecord)},
+                {"label":"Performance Reviews","value":count(db,models.PerformanceRecord)},
+                {"label":"People Issues","value":count(db,models.EmployeeIssue)},
             ],
             "flows":["Manpower Planning","Recruitment","Onboarding & Training","Placement","Employee Master","Skill Matrix","Performance","Employee Issue & Discipline"]
         }

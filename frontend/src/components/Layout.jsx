@@ -4,7 +4,7 @@ import {Home,Database,Package,ShoppingCart,DollarSign,Factory,Users,Crown,Clipbo
 import {api,clearToken} from '../api';
 
 const roleMenus={
-  CEO:[['Master Control','/master',Database],['CEO Control','/workspace/CEO',Crown],['CMO Summary','/workspace/CMO',ShoppingCart],['CFO Summary','/workspace/CFO',DollarSign],['COO Summary','/workspace/COO',Factory],['CHRO Summary','/workspace/CHRO',Users]],
+  CEO:[['CEO Home','/ceo',Crown],['Master Control','/master',Database],['Decisions','/ceo/decisions',ClipboardList],['Exceptions','/exceptions',AlertTriangle],['CMO Home','/cmo',ShoppingCart],['COO Home','/coo',Factory],['CHRO Home','/chro',Users]],
   CMO_MANAGER:[['CMO Home','/cmo',Home],['Order Management','/cmo/orders',ShoppingCart],['Customer / Buyer','/cmo/customers',Users],['Master Control','/master',Database]],
   CMO_SUPPORT:[['CMO Home','/cmo',Home],['Order Management','/cmo/orders',ShoppingCart],['Customer / Buyer','/cmo/customers',Users],['Master Control','/master',Database]],
   CFO_MANAGER:[['CFO Home','/workspace/CFO',Home],['Finance & Purchasing','/workspace/CFO',DollarSign],['Master Control','/master',Database]],
@@ -13,8 +13,8 @@ const roleMenus={
   SAMPLE_PIC:[['My Sample Tasks','/workspace/SAMPLE',ClipboardList],['Master Control','/master',Database]],
   PRINTING_PIC:[['My Printing Tasks','/workspace/PRINTING',ClipboardList],['Master Control','/master',Database]],
   PRODUCTION_PIC:[['My Tasks','/workspace/PRODUCTION',ClipboardList],['Master Control','/master',Database]],
-  CHRO_MANAGER:[['CHRO Home','/workspace/CHRO',Home],['People','/workspace/CHRO',Users],['Master Control','/master',Database]],
-  HR_SUPPORT:[['HR Home','/workspace/CHRO',Home],['Master Control','/master',Database]],
+  CHRO_MANAGER:[['CHRO Home','/chro',Home],['Employees','/chro/employees',Users],['Training','/chro/training',ClipboardList],['Performance','/chro/performance',ClipboardList],['Master Control','/master',Database]],
+  HR_SUPPORT:[['HR Home','/chro',Home],['Employees','/chro/employees',Users],['Training','/chro/training',ClipboardList],['Master Control','/master',Database]],
   SHIPMENT_ADMIN:[['Shipment Tasks','/workspace/SHIPMENT',ClipboardList],['Master Control','/master',Database]]
 };
 

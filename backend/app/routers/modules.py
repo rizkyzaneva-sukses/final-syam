@@ -101,6 +101,89 @@ def decisions(db:Session=Depends(get_db), user=Depends(require_roles(models.Role
 def create_decision(data:DecisionIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CEO))):
     x=models.CEODecision(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); return x
 
+class DecisionUpdate(BaseModel):
+    decision_type:Optional[str]=None; subject:Optional[str]=None; decision:Optional[str]=None
+    reason:Optional[str]=None; owner_name:Optional[str]=None; due_date:Optional[date]=None; action_status:Optional[str]=None
+
+@router.patch("/ceo/decisions/{dec_id}")
+def update_decision(dec_id:int, data:DecisionUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CEO))):
+    x=db.query(models.CEODecision).filter(models.CEODecision.id==dec_id).first()
+    if not x: raise HTTPException(404,"Decision not found")
+    for k,v in data.model_dump(exclude_unset=True).items(): setattr(x,k,v)
+    db.commit(); db.refresh(x); return x
+
+@router.delete("/ceo/decisions/{dec_id}")
+def delete_decision(dec_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CEO))):
+    x=db.query(models.CEODecision).filter(models.CEODecision.id==dec_id).first()
+    if not x: raise HTTPException(404,"Decision not found")
+    db.delete(x); db.commit(); return {"ok":True}
+
+class TrainingIn(BaseModel):
+    employee_id:int; title:str; start_date:Optional[date]=None; end_date:Optional[date]=None
+    result:Optional[str]=None; evaluator:Optional[str]=None
+
+@router.get("/chro/trainings")
+def trainings(db:Session=Depends(get_db), user=Depends(get_current_user)):
+    return db.query(models.TrainingRecord).order_by(desc(models.TrainingRecord.id)).all()
+
+@router.post("/chro/trainings")
+def create_training(data:TrainingIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CHRO_MANAGER,models.Role.HR_SUPPORT))):
+    x=models.TrainingRecord(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); return x
+
+class TrainingUpdate(BaseModel):
+    title:Optional[str]=None; start_date:Optional[date]=None; end_date:Optional[date]=None
+    result:Optional[str]=None; evaluator:Optional[str]=None
+
+@router.patch("/chro/trainings/{tr_id}")
+def update_training(tr_id:int, data:TrainingUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CHRO_MANAGER))):
+    x=db.query(models.TrainingRecord).filter(models.TrainingRecord.id==tr_id).first()
+    if not x: raise HTTPException(404,"Training not found")
+    for k,v in data.model_dump(exclude_unset=True).items(): setattr(x,k,v)
+    db.commit(); db.refresh(x); return x
+
+@router.delete("/chro/trainings/{tr_id}")
+def delete_training(tr_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CHRO_MANAGER))):
+    x=db.query(models.TrainingRecord).filter(models.TrainingRecord.id==tr_id).first()
+    if not x: raise HTTPException(404,"Training not found")
+    db.delete(x); db.commit(); return {"ok":True}
+
+class PerformanceIn(BaseModel):
+    employee_id:int; period:str; quality:Optional[float]=None; responsibility:Optional[float]=None
+    discipline:Optional[float]=None; spiritual:Optional[float]=None; attitude:Optional[float]=None
+    skill:Optional[float]=None; notes:Optional[str]=None
+
+@router.get("/chro/performances")
+def performances(db:Session=Depends(get_db), user=Depends(get_current_user)):
+    return db.query(models.PerformanceRecord).order_by(desc(models.PerformanceRecord.id)).all()
+
+@router.post("/chro/performances")
+def create_performance(data:PerformanceIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CHRO_MANAGER))):
+    scores=[v for v in [data.quality,data.responsibility,data.discipline,data.spiritual,data.attitude,data.skill] if v is not None]
+    total=round(sum(scores)/len(scores),2) if scores else 0
+    x=models.PerformanceRecord(**data.model_dump(),total_score=total); db.add(x); db.commit(); db.refresh(x); return x
+
+@router.patch("/chro/performances/{pr_id}")
+def update_performance(pr_id:int, data:PerformanceIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CHRO_MANAGER))):
+    x=db.query(models.PerformanceRecord).filter(models.PerformanceRecord.id==pr_id).first()
+    if not x: raise HTTPException(404,"Performance not found")
+    for k,v in data.model_dump(exclude_unset=True).items(): setattr(x,k,v)
+    scores=[v for v in [x.quality,x.responsibility,x.discipline,x.spiritual,x.attitude,x.skill] if v is not None]
+    x.total_score=round(sum(scores)/len(scores),2) if scores else 0
+    db.commit(); db.refresh(x); return x
+
+@router.patch("/chro/employees/{emp_id}")
+def update_employee(emp_id:int, data:EmployeeIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CHRO_MANAGER))):
+    x=db.query(models.Employee).filter(models.Employee.id==emp_id).first()
+    if not x: raise HTTPException(404,"Employee not found")
+    for k,v in data.model_dump(exclude_unset=True).items(): setattr(x,k,v)
+    db.commit(); db.refresh(x); return x
+
+@router.delete("/chro/employees/{emp_id}")
+def delete_employee(emp_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CHRO_MANAGER))):
+    x=db.query(models.Employee).filter(models.Employee.id==emp_id).first()
+    if not x: raise HTTPException(404,"Employee not found")
+    db.delete(x); db.commit(); return {"ok":True}
+
 class ExceptionIn(BaseModel):
     order_fk:Optional[int]=None; severity:str="YELLOW"; category:str; title:str
     owner_role:Optional[str]=None; owner_name:Optional[str]=None

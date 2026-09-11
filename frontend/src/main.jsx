@@ -15,6 +15,12 @@ import COOHome from './pages/COOHome';
 import MaterialRequestPage from './pages/MaterialRequestPage';
 import ProductionQueue from './pages/ProductionQueue';
 import WIPTracking from './pages/WIPTracking';
+import CEOHome from './pages/CEOHome';
+import DecisionPage from './pages/DecisionPage';
+import CHROHome from './pages/CHROHome';
+import EmployeePage from './pages/EmployeePage';
+import TrainingPage from './pages/TrainingPage';
+import PerformancePage from './pages/PerformancePage';
 import Layout from './components/Layout';
 import {getToken} from './api';
 import './styles.css';
@@ -36,6 +42,12 @@ function App(){return <BrowserRouter><Routes>
     <Route path="coo/material-requests" element={<MaterialRequestPage/>}/>
     <Route path="coo/production" element={<ProductionQueue/>}/>
     <Route path="coo/wip" element={<WIPTracking/>}/>
+    <Route path="ceo" element={<CEOHome/>}/>
+    <Route path="ceo/decisions" element={<DecisionPage/>}/>
+    <Route path="chro" element={<CHROHome/>}/>
+    <Route path="chro/employees" element={<EmployeePage/>}/>
+    <Route path="chro/training" element={<TrainingPage/>}/>
+    <Route path="chro/performance" element={<PerformancePage/>}/>
     <Route path="workspace/:name" element={<ModuleDashboard/>}/>
   </Route>
 </Routes></BrowserRouter>}
