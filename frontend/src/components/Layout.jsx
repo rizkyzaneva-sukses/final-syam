@@ -5,18 +5,18 @@ import {api,clearToken} from '../api';
 import GlobalSearch from './GlobalSearch';
 
 const roleMenus={
-  CEO:[['CEO Home','/ceo',Crown],['Master Control','/master',Database],['Decisions','/ceo/decisions',ClipboardList],['Exceptions','/exceptions',AlertTriangle],['Audit Log','/audit-log',ClipboardList],['CMO Home','/cmo',ShoppingCart],['CFO Home','/cfo',DollarSign],['COO Home','/coo',Factory],['CHRO Home','/chro',Users]],
-  CMO_MANAGER:[['CMO Home','/cmo',Home],['Order Management','/cmo/orders',ShoppingCart],['Customer / Buyer','/cmo/customers',Users],['Quotations','/cmo/quotations',FileText],['Sample / PPM','/cmo/samples',ClipboardList],['SPK','/cmo/spk',CheckSquare],['Master Control','/master',Database]],
+  CEO:[['CEO Home','/ceo',Crown],['Master Control','/master',Database],['Decisions','/ceo/decisions',ClipboardList],['Exceptions','/exceptions',AlertTriangle],['Audit Log','/audit-log',ClipboardList],['CMO Home','/cmo',ShoppingCart],['CFO Home','/cfo',DollarSign],['COO Home','/coo',Factory],['CHRO Home','/chro',Users],['Deliveries','/coo/deliveries',Truck],['Order Closing','/coo/closing',CheckSquare]],
+  CMO_MANAGER:[['CMO Home','/cmo',Home],['Order Management','/cmo/orders',ShoppingCart],['Customer / Buyer','/cmo/customers',Users],['Quotations','/cmo/quotations',FileText],['Sample / PPM','/cmo/samples',ClipboardList],['SPK','/cmo/spk',CheckSquare],['Master Control','/master',Database],['Deliveries','/coo/deliveries',Truck],['Order Closing','/coo/closing',CheckSquare]],
   CMO_SUPPORT:[['CMO Home','/cmo',Home],['Order Management','/cmo/orders',ShoppingCart],['Customer / Buyer','/cmo/customers',Users],['Quotations','/cmo/quotations',FileText],['Sample / PPM','/cmo/samples',ClipboardList],['Master Control','/master',Database]],
-  CFO_MANAGER:[['CFO Home','/cfo',Home],['Invoices','/cfo/invoices',DollarSign],['Purchase Orders','/cfo/purchase-orders',Package],['Shipments Gate','/cfo/shipments',Truck],['Master Control','/master',Database]],
+  CFO_MANAGER:[['CFO Home','/cfo',Home],['Invoices','/cfo/invoices',DollarSign],['Purchase Orders','/cfo/purchase-orders',Package],['Shipments Gate','/cfo/shipments',Truck],['Master Control','/master',Database],['Deliveries','/coo/deliveries',Truck]],
   FINANCE_SUPPORT:[['CFO Home','/cfo',Home],['Invoices','/cfo/invoices',DollarSign],['Master Control','/master',Database]],
-  COO_MANAGER:[['COO Home','/coo',Home],['Material Requests','/coo/material-requests',Package],['Production Queue','/coo/production',Factory],['WIP Tracking','/coo/wip',Package],['QC Records','/coo/qc',CheckSquare],['Shipments','/cfo/shipments',Truck],['Master Control','/master',Database]],
+  COO_MANAGER:[['COO Home','/coo',Home],['Material Requests','/coo/material-requests',Package],['Production Queue','/coo/production',Factory],['WIP Tracking','/coo/wip',Package],['QC Records','/coo/qc',CheckSquare],['Shipments','/cfo/shipments',Truck],['Master Control','/master',Database],['Production Plan','/coo/planning',Factory],['Deliveries','/coo/deliveries',Truck],['Order Closing','/coo/closing',CheckSquare]],
   SAMPLE_PIC:[['My Sample Tasks','/tasks',ClipboardList],['Samples','/cmo/samples',ClipboardList],['Master Control','/master',Database]],
   PRINTING_PIC:[['My Tasks','/tasks',ClipboardList],['Production Queue','/coo/production',Factory],['Master Control','/master',Database]],
   PRODUCTION_PIC:[['My Tasks','/tasks',ClipboardList],['Production Queue','/coo/production',Factory],['Material Requests','/coo/material-requests',Package],['Master Control','/master',Database]],
   CHRO_MANAGER:[['CHRO Home','/chro',Home],['Employees','/chro/employees',Users],['Training','/chro/training',BookOpen],['Performance','/chro/performance',BarChart3],['Employee Issues','/chro/issues',AlertTriangle],['Master Control','/master',Database]],
   HR_SUPPORT:[['CHRO Home','/chro',Home],['Employees','/chro/employees',Users],['Training','/chro/training',BookOpen],['Master Control','/master',Database]],
-  SHIPMENT_ADMIN:[['Shipments','/cfo/shipments',Truck],['Master Control','/master',Database]]
+  SHIPMENT_ADMIN:[['Shipments','/cfo/shipments',Truck],['Master Control','/master',Database],['Deliveries','/coo/deliveries',Truck]]
 };
 
 export default function Layout(){

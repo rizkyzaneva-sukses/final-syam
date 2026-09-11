@@ -1,15 +1,16 @@
 import React,{useEffect,useState} from 'react';
 import {api} from '../api';
-import {Plus,Edit2,Trash2,X,Check,Search} from 'lucide-react';
+import {Plus,Edit2,Trash2,X,Check,Search,CheckSquare} from 'lucide-react';
 
-const empty={po_no:'',item:'',qty:'',unit:'',supplier:'',amount:'',order_fk:'',status:'PENDING'};
+const empty={po_no:'',item:'',qty:'',unit:'',supplier:'',amount:'',order_fk:'',status:'PENDING',material_status:'WAITING',arrival_date:''};
 const statusOpts=['PENDING','ORDERED','RECEIVED','CANCELLED'];
+const materialStatusOpts=['WAITING','READY','PARTIAL'];
 const fmtRp=n=>'Rp '+Number(n||0).toLocaleString('id-ID');
 
 export default function PurchaseOrderPage(){
   const [list,setList]=useState([]),[orders,setOrders]=useState([]);
   const [err,setErr]=useState('');
-  const [q,setQ]=useState(''),[filterStatus,setFilterStatus]=useState('');
+  const [q,setQ]=useState(''),[filterStatus,setFilterStatus]=useState(''),[filterMaterial,setFilterMaterial]=useState('');
   const [form,setForm]=useState(null),[saving,setSaving]=useState(false);
 
   function load(){Promise.all([api('/cfo/purchase-orders'),api('/orders')]).then(([m,o])=>{setList(m);setOrders(o)}).catch(e=>setErr(e.message))}
@@ -18,6 +19,7 @@ export default function PurchaseOrderPage(){
   function filtered(){
     return list.filter(m=>{
       if(filterStatus&&m.status!==filterStatus) return false;
+      if(filterMaterial&&m.material_status!==filterMaterial) return false;
       if(!q) return true;
       const s=q.toLowerCase();
       return m.po_no.toLowerCase().includes(s)||(m.item||'').toLowerCase().includes(s)||(m.supplier||'').toLowerCase().includes(s);
@@ -27,7 +29,7 @@ export default function PurchaseOrderPage(){
   async function save(ev){
     ev.preventDefault(); setSaving(true);
     try{
-      const payload={...form,qty:parseFloat(form.qty)||0,amount:parseFloat(form.amount)||0,order_fk:form.order_fk?parseInt(form.order_fk):null};
+      const payload={...form,qty:parseFloat(form.qty)||0,amount:parseFloat(form.amount)||0,order_fk:form.order_fk?parseInt(form.order_fk):null,arrival_date:form.arrival_date||null};
       if(form.id){
         await api('/cfo/purchase-orders/'+form.id,{method:'PATCH',body:JSON.stringify(payload)});
       }else{
@@ -43,6 +45,15 @@ export default function PurchaseOrderPage(){
     try{await api('/cfo/purchase-orders/'+id,{method:'DELETE'});load();}catch(x){alert(x.message)}
   }
 
+  async function markReceived(id){
+    if(!confirm('Tandai material sudah diterima?')) return;
+    try{
+      const today=new Date().toISOString().split('T')[0];
+      await api('/cfo/purchase-orders/'+id,{method:'PATCH',body:JSON.stringify({material_status:'READY',arrival_date:today})});
+      load();
+    }catch(x){alert(x.message)}
+  }
+
   const f2=filtered();
   function orderLabel(id){const o=orders.find(o=>o.id===id);return o?o.order_id:'-'}
 
@@ -53,17 +64,21 @@ export default function PurchaseOrderPage(){
     <div className="filter-bar">
       <div className="search-bar"><Search size={16}/><input placeholder="Cari PO no, item, supplier..." value={q} onChange={e=>setQ(e.target.value)}/></div>
       <div className="filter-pills">{statusOpts.map(s=><button key={s} className={'pill '+(filterStatus===s?'active '+s.toLowerCase():'')} onClick={()=>setFilterStatus(filterStatus===s?'':s)}>{s}</button>)}</div>
+      <div className="filter-pills">{materialStatusOpts.map(s=><button key={s} className={'pill '+(filterMaterial===s?'active '+s.toLowerCase():'')} onClick={()=>setFilterMaterial(filterMaterial===s?'':s)}>Material: {s}</button>)}</div>
     </div>
-    <div className="table-scroll"><table><thead><tr><th>PO No</th><th>Item</th><th>Qty</th><th>Unit</th><th>Supplier</th><th>Amount</th><th>Order</th><th>Status</th><th>Aksi</th></tr></thead>
+    <div className="table-scroll"><table><thead><tr><th>PO No</th><th>Item</th><th>Qty</th><th>Unit</th><th>Supplier</th><th>Amount</th><th>Order</th><th>Status</th><th>Material</th><th>Arrival</th><th>Aksi</th></tr></thead>
     <tbody>{f2.map(m=><tr key={m.id}>
       <td><b>{m.po_no}</b></td><td>{m.item}</td><td>{m.qty}</td><td>{m.unit||'-'}</td><td>{m.supplier||'-'}</td><td>{fmtRp(m.amount)}</td><td>{orderLabel(m.order_fk)}</td>
       <td><span className={'badge '+(m.status==='RECEIVED'?'green':m.status==='ORDERED'?'amber':m.status==='CANCELLED'?'gray':'red')}>{m.status}</span></td>
+      <td><span className={'badge '+(m.material_status==='READY'?'green':m.material_status==='PARTIAL'?'amber':'gray')}>{m.material_status||'WAITING'}</span></td>
+      <td>{m.arrival_date||'-'}</td>
       <td className="td-action">
-        <button className="icon-btn" onClick={()=>setForm({...m,qty:m.qty,amount:m.amount,order_fk:m.order_fk||''})} title="Edit"><Edit2 size={15}/></button>
+        {m.material_status!=='READY'&&m.status!=='CANCELLED'&&<button className="icon-btn" style={{color:'#16a34a'}} onClick={()=>markReceived(m.id)} title="Mark Received"><CheckSquare size={15}/></button>}
+        <button className="icon-btn" onClick={()=>setForm({...m,qty:m.qty,amount:m.amount,order_fk:m.order_fk||'',material_status:m.material_status||'WAITING',arrival_date:m.arrival_date||''})} title="Edit"><Edit2 size={15}/></button>
         <button className="icon-btn danger" onClick={()=>del(m.id)} title="Hapus"><Trash2 size={15}/></button>
       </td>
     </tr>)}
-    {f2.length===0&&<tr><td colSpan={9} className="empty">Tidak ada purchase order</td></tr>}</tbody></table></div>
+    {f2.length===0&&<tr><td colSpan={11} className="empty">Tidak ada purchase order</td></tr>}</tbody></table></div>
     {form&&<div className="modal-bg" onClick={()=>setForm(null)}>
     <div className="modal" onClick={e=>e.stopPropagation()}>
       <div className="modal-head"><h2>{form.id?'Edit':'Tambah'} Purchase Order</h2><button className="icon-btn" onClick={()=>setForm(null)}><X size={18}/></button></div>
@@ -83,6 +98,10 @@ export default function PurchaseOrderPage(){
         <div className="form-grid">
           <label>Order<select value={form.order_fk} onChange={e=>setForm({...form,order_fk:e.target.value})}><option value="">Tidak terkait order</option>{orders.map(o=><option key={o.id} value={o.id}>{o.order_id} - {o.buyer}</option>)}</select></label>
           <label>Status<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>{statusOpts.map(s=><option key={s}>{s}</option>)}</select></label>
+        </div>
+        <div className="form-grid">
+          <label>Material Status<select value={form.material_status||'WAITING'} onChange={e=>setForm({...form,material_status:e.target.value})}>{materialStatusOpts.map(s=><option key={s}>{s}</option>)}</select></label>
+          <label>Arrival Date<input type="date" value={form.arrival_date||''} onChange={e=>setForm({...form,arrival_date:e.target.value})}/></label>
         </div>
         <div className="modal-foot"><button type="button" className="btn" onClick={()=>setForm(null)}>Batal</button><button className="btn primary" disabled={saving}><Check size={14}/> {saving?'Menyimpan...':'Simpan'}</button></div>
       </form>

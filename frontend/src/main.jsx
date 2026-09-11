@@ -24,6 +24,9 @@ import WIPTracking from './pages/WIPTracking';
 import QCRecordPage from './pages/QCRecordPage';
 import CEOHome from './pages/CEOHome';
 import DecisionPage from './pages/DecisionPage';
+import ProductionPlanPage from './pages/ProductionPlanPage';
+import DeliveryPage from './pages/DeliveryPage';
+import OrderClosingPage from './pages/OrderClosingPage';
 import CHROHome from './pages/CHROHome';
 import EmployeePage from './pages/EmployeePage';
 import TrainingPage from './pages/TrainingPage';
@@ -60,6 +63,9 @@ function App(){return <BrowserRouter><Routes>
     <Route path="coo/production" element={<ProductionQueue/>}/>
     <Route path="coo/wip" element={<WIPTracking/>}/>
     <Route path="coo/qc" element={<QCRecordPage/>}/>
+    <Route path="coo/planning" element={<ProductionPlanPage/>}/>
+    <Route path="coo/deliveries" element={<DeliveryPage/>}/>
+    <Route path="coo/closing" element={<OrderClosingPage/>}/>
     {/* CEO */}
     <Route path="ceo" element={<CEOHome/>}/>
     <Route path="ceo/decisions" element={<DecisionPage/>}/>

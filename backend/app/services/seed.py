@@ -4,7 +4,7 @@ from ..auth import hash_password
 from ..models import (User, Role, Order, OrderType, Article, ProductionMovement,
     ExceptionItem, CapacitySnapshot, Task, Customer, Employee, Invoice, Quotation,
     SampleRecord, SPK, QCRecord, Shipment, PurchaseOrder, Payment, EmployeeIssue,
-    CEODecision, TrainingRecord, PerformanceRecord)
+    CEODecision, TrainingRecord, PerformanceRecord, ProductionPlan, DeliveryConfirmation, OrderClosing)
 
 DEMO_PASSWORD="demo123"
 
@@ -151,14 +151,14 @@ def seed(db: Session):
 
     # --- SHIPMENTS ---
     db.add_all([
-        Shipment(order_fk=o1.id, shipment_no="SHP-001", status="PREPARING", finance_gate="PENDING", ceo_approval="NOT_REQUIRED", notes="Belum selesai packing"),
-        Shipment(order_fk=o2.id, shipment_no="SHP-002", status="NOT_READY", finance_gate="BLOCKED", ceo_approval="NOT_REQUIRED", notes="Material delay, shipment blocked"),
+        Shipment(order_fk=o1.id, shipment_no="SHP-001", status="PREPARING", finance_gate="PENDING", ceo_approval="NOT_REQUIRED", notes="Belum selesai packing", shipped_date=None, tracking_no=None),
+        Shipment(order_fk=o2.id, shipment_no="SHP-002", status="NOT_READY", finance_gate="BLOCKED", ceo_approval="NOT_REQUIRED", notes="Material delay, shipment blocked", shipped_date=today, tracking_no="TRK-2026-0001"),
     ])
 
     # --- PURCHASE ORDERS ---
     db.add_all([
-        PurchaseOrder(po_no="PO-001", order_fk=o2.id, item="Kain Polyester", qty=500, unit="meter", supplier="PT Textile Jaya", amount=25000000, status="ORDERED"),
-        PurchaseOrder(po_no="PO-002", order_fk=o5.id, item="Kain Fleece", qty=200, unit="meter", supplier="PT Kain Nusantara", amount=18000000, status="PENDING"),
+        PurchaseOrder(po_no="PO-001", order_fk=o2.id, item="Kain Polyester", qty=500, unit="meter", supplier="PT Textile Jaya", amount=25000000, status="ORDERED", arrival_date=today-timedelta(days=2), material_status="RECEIVED"),
+        PurchaseOrder(po_no="PO-002", order_fk=o5.id, item="Kain Fleece", qty=200, unit="meter", supplier="PT Kain Nusantara", amount=18000000, status="PENDING", arrival_date=None, material_status="WAITING"),
     ])
 
     # --- PAYMENTS ---
@@ -178,5 +178,36 @@ def seed(db: Session):
         EmployeeIssue(employee_id=employees[5].id, issue_type="Attendance", description="Terlambat 3x bulan ini", severity="YELLOW", status="OPEN", reported_by="Yuni"),
         EmployeeIssue(employee_id=employees[3].id, issue_type="Quality", description="Reject rate Printing tinggi", severity="RED", status="IN_PROGRESS", reported_by="Yuni"),
     ])
+
+    # --- PRODUCTION PLANS ---
+    db.add_all([
+        ProductionPlan(order_fk=o1.id, plan_date=today, status="PLANNING",
+            notes="Planning cutting 200 pcs Hoodie HD-CLASSIC", created_by_id=users[4].id),
+        ProductionPlan(order_fk=o4.id, plan_date=today, status="IN_PROGRESS",
+            notes="Produksi 1000 pcs Polo Shirt BW-ECO-01 sedang jalan", created_by_id=users[4].id),
+    ])
+
+    # --- DELIVERY CONFIRMATIONS ---
+    shp1 = db.query(Shipment).filter_by(shipment_no="SHP-001").first()
+    shp2 = db.query(Shipment).filter_by(shipment_no="SHP-002").first()
+    db.add_all([
+        DeliveryConfirmation(shipment_fk=shp1.id, confirmed_by_customer="John Smith (FRAMSTER)",
+            confirmation_date=None, feedback="Menunggu pengiriman", status="PENDING"),
+        DeliveryConfirmation(shipment_fk=shp2.id, confirmed_by_customer="Carlos Garcia (MADRID CO)",
+            confirmation_date=today, feedback="Pengiriman sudah diterima, barang OK", status="CONFIRMED"),
+    ])
+
+    # --- ORDER CLOSINGS ---
+    db.add_all([
+        OrderClosing(order_fk=o1.id, customer_close_status="OPEN",
+            financial_close_status="OPEN", order_close_status="OPEN",
+            closed_by=None, notes="Order masih dalam produksi"),
+        OrderClosing(order_fk=o2.id, customer_close_status="PARTIAL",
+            financial_close_status="PARTIAL", order_close_status="PARTIAL",
+            closed_by="Lutfi", close_date=today, notes="Sebagian closed, tunggu material"),
+    ])
+
+    # --- ADD arrival_date & material_status to existing POs ---
+    # (PurchaseOrder already has these columns; update via flush)
 
     db.commit()

@@ -144,7 +144,7 @@ class POIn(BaseModel):
     po_no:str; order_fk:Optional[int]=None; item:str; qty:float; unit:Optional[str]=None; supplier:Optional[str]=None; amount:Optional[float]=0; status:str="PENDING"
 
 class POUpdate(BaseModel):
-    item:Optional[str]=None; qty:Optional[float]=None; unit:Optional[str]=None; supplier:Optional[str]=None; amount:Optional[float]=None; status:Optional[str]=None
+    item:Optional[str]=None; qty:Optional[float]=None; unit:Optional[str]=None; supplier:Optional[str]=None; amount:Optional[float]=None; status:Optional[str]=None; arrival_date:Optional[date]=None; material_status:Optional[str]=None
 
 @router.get("/cfo/purchase-orders")
 def list_pos(db:Session=Depends(get_db), user=Depends(get_current_user)):
@@ -201,6 +201,9 @@ def delete_material_request(mr_id:int, db:Session=Depends(get_db), user=Depends(
 class MovementIn(BaseModel):
     article_id:int; process:str; qty_in:int=0; qty_done:int=0; qty_reject:int=0; status:str="IN_PROCESS"; pic_name:Optional[str]=None
 
+class MovementUpdate(BaseModel):
+    qty_in:Optional[int]=None; qty_done:Optional[int]=None; qty_reject:Optional[int]=None; status:Optional[str]=None; pic_name:Optional[str]=None; reject_reason:Optional[str]=None; target_date:Optional[date]=None
+
 @router.post("/coo/movements")
 def create_movement(data:MovementIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.COO_MANAGER,models.Role.PRODUCTION_PIC,models.Role.PRINTING_PIC,models.Role.SAMPLE_PIC))):
     if data.qty_done > data.qty_in: raise HTTPException(400,"qty_done cannot exceed qty_in")
@@ -209,6 +212,33 @@ def create_movement(data:MovementIn, db:Session=Depends(get_db), user=Depends(re
 @router.get("/coo/movements")
 def list_movements(db:Session=Depends(get_db), user=Depends(get_current_user)):
     return db.query(models.ProductionMovement).order_by(desc(models.ProductionMovement.id)).all()
+
+@router.patch("/coo/movements/{mov_id}")
+def update_movement(mov_id:int, data:MovementUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.COO_MANAGER,models.Role.PRODUCTION_PIC))):
+    return apply_update(get_or_404(db,models.ProductionMovement,mov_id,"Movement not found"), data, db)
+
+# ──────────── COO: PRODUCTION PLANS ────────────
+class PlanIn(BaseModel):
+    order_fk:int; plan_date:Optional[date]=None; status:str="PLANNING"; notes:Optional[str]=None
+
+class PlanUpdate(BaseModel):
+    order_fk:Optional[int]=None; plan_date:Optional[date]=None; status:Optional[str]=None; notes:Optional[str]=None
+
+@router.get("/coo/production-plans")
+def list_plans(db:Session=Depends(get_db), user=Depends(get_current_user)):
+    return db.query(models.ProductionPlan).order_by(desc(models.ProductionPlan.id)).all()
+
+@router.post("/coo/production-plans")
+def create_plan(data:PlanIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.COO_MANAGER))):
+    x=models.ProductionPlan(**data.model_dump(), created_by_id=user.id); db.add(x); db.commit(); db.refresh(x); log_audit(db, user, "CREATE", "ProductionPlan", x.id, f"order={data.order_fk}"); return x
+
+@router.patch("/coo/production-plans/{plan_id}")
+def update_plan(plan_id:int, data:PlanUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.COO_MANAGER))):
+    return apply_update(get_or_404(db,models.ProductionPlan,plan_id,"Plan not found"), data, db, user, "ProductionPlan")
+
+@router.delete("/coo/production-plans/{plan_id}")
+def delete_plan(plan_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.COO_MANAGER))):
+    x=get_or_404(db,models.ProductionPlan,plan_id,"Plan not found"); db.delete(x); db.commit(); log_audit(db, user, "DELETE", "ProductionPlan", plan_id); return {"ok":True}
 
 # ──────────── COO: WIP SUMMARY ────────────
 @router.get("/coo/wip-summary")
@@ -264,6 +294,22 @@ def update_shipment(sh_id:int, data:ShipmentUpdate, db:Session=Depends(get_db), 
     return apply_update(get_or_404(db,models.Shipment,sh_id,"Shipment not found"), data, db)
 
 # ──────────── CFO: SHIPMENT GATE ────────────
+class ShipmentFinanceGateIn(BaseModel):
+    action:str
+    reason:Optional[str]=None
+
+@router.post("/cfo/shipments/{shipment_id}/gate")
+def cfo_shipment_gate(shipment_id:int, data:ShipmentFinanceGateIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CFO_MANAGER))):
+    x=get_or_404(db,models.Shipment,shipment_id,"Shipment not found")
+    if data.action not in ["APPROVE","REJECT"]:
+        raise HTTPException(400,"action must be APPROVE or REJECT")
+    if data.action == "APPROVE":
+        x.finance_gate = "CLEAR"
+    else:
+        x.finance_gate = "REJECTED"
+    db.commit(); db.refresh(x)
+    log_audit(db, user, f"SHIPMENT_GATE_{data.action}", "Shipment", shipment_id, data.reason or "")
+    return x
 class ShipmentGateIn(BaseModel):
     finance_gate:str
     ceo_approval:Optional[str]=None
@@ -452,6 +498,87 @@ def list_audit_log(db:Session=Depends(get_db), user=Depends(require_roles(models
             "created_at": l.created_at,
         })
     return result
+
+
+# ──────────── CEO: SHIPMENT APPROVAL ────────────
+class ShipmentApprovalIn(BaseModel):
+    action:str
+    reason:Optional[str]=None
+
+@router.post("/ceo/shipments/{shipment_id}/approve-shipment")
+def ceo_approve_shipment(shipment_id:int, data:ShipmentApprovalIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CEO))):
+    x=get_or_404(db,models.Shipment,shipment_id,"Shipment not found")
+    if data.action not in ["APPROVE","REJECT"]:
+        raise HTTPException(400,"action must be APPROVE or REJECT")
+    if data.action == "APPROVE":
+        x.ceo_approval = "APPROVED"
+    else:
+        x.ceo_approval = "REJECTED"
+    db.commit(); db.refresh(x)
+    log_audit(db, user, f"CEO_SHIPMENT_{data.action}", "Shipment", shipment_id, data.reason or "")
+    return x
+
+# ──────────── COO: DELIVERY CONFIRMATIONS ────────────
+class DeliveryConfirmIn(BaseModel):
+    shipment_fk:int; confirmed_by_customer:Optional[str]=None; confirmation_date:Optional[date]=None; feedback:Optional[str]=None; status:str="PENDING"
+
+class DeliveryConfirmUpdate(BaseModel):
+    confirmed_by_customer:Optional[str]=None; confirmation_date:Optional[date]=None; feedback:Optional[str]=None; status:Optional[str]=None
+
+@router.get("/coo/deliveries")
+def list_deliveries(db:Session=Depends(get_db), user=Depends(get_current_user)):
+    return db.query(models.DeliveryConfirmation).order_by(desc(models.DeliveryConfirmation.id)).all()
+
+@router.post("/coo/deliveries")
+def create_delivery_confirmation(data:DeliveryConfirmIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.COO_MANAGER,models.Role.SHIPMENT_ADMIN))):
+    x=models.DeliveryConfirmation(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); log_audit(db, user, "CREATE", "DeliveryConfirmation", x.id, f"shipment={data.shipment_fk}"); return x
+
+@router.patch("/coo/deliveries/{del_id}")
+def update_delivery_confirmation(del_id:int, data:DeliveryConfirmUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.COO_MANAGER,models.Role.SHIPMENT_ADMIN))):
+    return apply_update(get_or_404(db,models.DeliveryConfirmation,del_id,"Delivery not found"), data, db, user, "DeliveryConfirmation")
+
+# ──────────── COO: ORDER CLOSING ────────────
+class OrderClosingIn(BaseModel):
+    order_fk:int; customer_close_status:str="OPEN"; financial_close_status:str="OPEN"; order_close_status:str="OPEN"; close_date:Optional[date]=None; notes:Optional[str]=None
+
+class OrderClosingUpdate(BaseModel):
+    customer_close_status:Optional[str]=None; financial_close_status:Optional[str]=None; order_close_status:Optional[str]=None; close_date:Optional[date]=None; notes:Optional[str]=None
+
+@router.get("/coo/order-closing/{order_id}")
+def get_order_closing(order_id:int, db:Session=Depends(get_db), user=Depends(get_current_user)):
+    rec = db.query(models.OrderClosing).filter(models.OrderClosing.order_fk==order_id).order_by(desc(models.OrderClosing.id)).first()
+    if not rec: raise HTTPException(404,"No closing record for this order")
+    return rec
+
+@router.post("/coo/order-closing/{order_id}")
+def create_order_closing(order_id:int, data:OrderClosingIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.COO_MANAGER))):
+    data.order_fk = order_id
+    x=models.OrderClosing(**data.model_dump(), closed_by=user.name); db.add(x); db.commit(); db.refresh(x)
+    log_audit(db, user, "CREATE", "OrderClosing", x.id, f"order={order_id}")
+    return x
+
+@router.patch("/coo/order-closing/{order_id}")
+def update_order_closing(order_id:int, data:OrderClosingUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.COO_MANAGER))):
+    rec = db.query(models.OrderClosing).filter(models.OrderClosing.order_fk==order_id).order_by(desc(models.OrderClosing.id)).first()
+    if not rec: raise HTTPException(404,"No closing record for this order")
+    return apply_update(rec, data, db, user, "OrderClosing")
+
+# ──────────── COO: RELEASE TO PURCHASING ────────────
+@router.post("/coo/release-to-purchasing/{material_request_id}")
+def release_to_purchasing(material_request_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.COO_MANAGER))):
+    mr = get_or_404(db,models.MaterialRequest,material_request_id,"Material request not found")
+    if mr.status not in ("REQUESTED","APPROVED"):
+        raise HTTPException(400,"Material request must be REQUESTED or APPROVED")
+    po_no = f"PO-{mr.id:05d}"
+    po = models.PurchaseOrder(
+        po_no=po_no, order_fk=mr.order_fk, item=mr.item_name,
+        qty=mr.qty, unit=mr.unit, amount=0, status="PENDING"
+    )
+    db.add(po)
+    mr.status = "ORDERED"
+    db.commit(); db.refresh(po)
+    log_audit(db, user, "RELEASE_TO_PURCHASING", "MaterialRequest", mr.id, f"created PO={po_no}")
+    return {"ok":True, "po_id":po.id, "po_no":po_no}
 
 # ──────────── CFO: OUTSTANDING CALCULATION ────────────
 @router.get("/cfo/outstanding-summary")

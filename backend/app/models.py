@@ -191,6 +191,8 @@ class PurchaseOrder(Base):
     supplier = Column(String(180), nullable=True)
     amount = Column(Numeric(18,2), default=0, nullable=False)
     status = Column(String(32), default="PENDING", nullable=False)
+    arrival_date = Column(Date, nullable=True)
+    material_status = Column(String(32), default="WAITING", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 class Invoice(Base):
@@ -237,6 +239,9 @@ class Shipment(Base):
     finance_gate = Column(String(32), default="PENDING", nullable=False)
     ceo_approval = Column(String(32), nullable=True)
     notes = Column(Text, nullable=True)
+    delivery_date = Column(Date, nullable=True)
+    shipped_date = Column(Date, nullable=True)
+    tracking_no = Column(String(120), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 class Employee(Base):
@@ -304,4 +309,42 @@ class SystemConfig(Base):
     id = Column(Integer, primary_key=True)
     key = Column(String(120), unique=True, nullable=False)
     value = Column(Text, nullable=True)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow, nullable=False)
+
+class ProductionPlan(Base):
+    __tablename__ = "production_plans"
+    id = Column(Integer, primary_key=True)
+    order_fk = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    plan_date = Column(Date, nullable=True)
+    status = Column(String(32), default="PLANNING", nullable=False)
+    notes = Column(Text, nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    order = relationship("Order", backref="production_plans")
+
+class DeliveryConfirmation(Base):
+    __tablename__ = "delivery_confirmations"
+    id = Column(Integer, primary_key=True)
+    shipment_fk = Column(Integer, ForeignKey("shipments.id", ondelete="CASCADE"), nullable=False, index=True)
+    confirmed_by_customer = Column(String(160), nullable=True)
+    confirmation_date = Column(Date, nullable=True)
+    feedback = Column(Text, nullable=True)
+    status = Column(String(32), default="PENDING", nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    shipment = relationship("Shipment", backref="delivery_confirmations")
+
+class OrderClosing(Base):
+    __tablename__ = "order_closings"
+    id = Column(Integer, primary_key=True)
+    order_fk = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    customer_close_status = Column(String(32), default="OPEN", nullable=False)
+    financial_close_status = Column(String(32), default="OPEN", nullable=False)
+    order_close_status = Column(String(32), default="OPEN", nullable=False)
+    closed_by = Column(String(120), nullable=True)
+    close_date = Column(Date, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    order = relationship("Order", backref="order_closings")
