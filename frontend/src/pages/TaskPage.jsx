@@ -7,17 +7,28 @@ const statusOpts=['OPEN','IN_PROGRESS','DONE','CANCELLED'];
 
 export default function TaskPage(){
   const [list,setList]=useState([]),[users,setUsers]=useState([]),[orders,setOrders]=useState([]);
+  const [me,setMe]=useState(null);
   const [err,setErr]=useState('');
   const [q,setQ]=useState(''),[filterStatus,setFilterStatus]=useState('');
   const [form,setForm]=useState(null),[saving,setSaving]=useState(false);
 
+  const isPIC=me && ['SAMPLE_PIC','PRINTING_PIC','PRODUCTION_PIC','SHIPMENT_ADMIN'].includes(me.role);
+
   function load(){
-    Promise.all([api('/tasks'),api('/users'),api('/orders')]).then(([t,u,o])=>{setList(t);setUsers(u);setOrders(o)}).catch(e=>setErr(e.message));
+    Promise.all([api('/tasks'),api('/users'),api('/orders'),api('/auth/me')]).then(([t,u,o,m])=>{
+      setList(t); setUsers(u); setOrders(o); setMe(m);
+    }).catch(e=>setErr(e.message));
   }
   useEffect(load,[]);
 
+  // PIC roles only see their own tasks
+  function visibleTasks(){
+    if(isPIC && me) return list.filter(t=>t.assigned_to_id===me.id);
+    return list;
+  }
+
   function filtered(){
-    return list.filter(t=>{
+    return visibleTasks().filter(t=>{
       if(filterStatus&&t.status!==filterStatus) return false;
       if(!q) return true;
       const s=q.toLowerCase();
@@ -46,15 +57,15 @@ export default function TaskPage(){
   }
 
   const f2=filtered();
-  const openCount=list.filter(t=>t.status==='OPEN').length;
-  const progressCount=list.filter(t=>t.status==='IN_PROGRESS').length;
+  const openCount=visibleTasks().filter(t=>t.status==='OPEN').length;
+  const progressCount=visibleTasks().filter(t=>t.status==='IN_PROGRESS').length;
 
   function userName(id){const u=users.find(u=>u.id===id);return u?.name||'Unassigned'}
   function orderLabel(id){const o=orders.find(o=>o.id===id);return o?.order_id||''}
 
   return <div className="page">
-    <div className="page-title"><div><h1>Task Management</h1><p>{openCount} open • {progressCount} in progress</p></div>
-      <button className="btn primary" onClick={()=>setForm({...empty})}><Plus size={16}/> Tambah Task</button></div>
+    <div className="page-title"><div><h1>{isPIC?'My Tasks':'Task Management'}</h1><p>{openCount} open • {progressCount} in progress{isPIC?' (tugas saya saja)':''}</p></div>
+      {!isPIC && <button className="btn primary" onClick={()=>setForm({...empty})}><Plus size={16}/> Tambah Task</button>}</div>
     {err&&<div className="notice danger">{err}</div>}
 
     <div className="filter-bar">
@@ -70,11 +81,11 @@ export default function TaskPage(){
       <td>{t.due_date||'-'}</td>
       <td><span className={'badge '+(t.status==='OPEN'?'red':t.status==='IN_PROGRESS'?'amber':t.status==='DONE'?'green':'gray')}>{t.status.replace('_',' ')}</span></td>
       <td className="td-action">
-        <button className="icon-btn" onClick={()=>setForm({...t,assigned_to_id:t.assigned_to_id||'',order_fk:t.order_fk||'',due_date:t.due_date||''})} title="Edit"><Edit2 size={15}/></button>
-        {t.status!=='DONE'&&<button className="icon-btn" onClick={async()=>{await api('/tasks/'+t.id,{method:'PATCH',body:JSON.stringify({status:'DONE'})});load()}} title="Selesai"><CheckCircle size={15} color="#16a34a"/></button>}
+        {!isPIC && <button className="icon-btn" onClick={()=>setForm({...t,assigned_to_id:t.assigned_to_id||'',order_fk:t.order_fk||'',due_date:t.due_date||''})} title="Edit"><Edit2 size={15}/></button>}
+        {t.status!=='DONE'&&t.status!=='CANCELLED'&&<button className="icon-btn" onClick={async()=>{await api('/tasks/'+t.id,{method:'PATCH',body:JSON.stringify({status:isPIC?'DONE':'IN_PROGRESS'})});load()}} title={isPIC?'Selesaikan':'Set In Progress'}><CheckCircle size={15} color="#16a34a"/></button>}
       </td>
     </tr>)}
-    {f2.length===0&&<tr><td colSpan={6} className="empty">Tidak ada task</td></tr>}</tbody></table></div>
+    {f2.length===0&&<tr><td colSpan={6} className="empty">{isPIC?'Tidak ada task untuk anda':'Tidak ada task'}</td></tr>}</tbody></table></div>
 
     {form&&<div className="modal-bg" onClick={()=>setForm(null)}>
     <div className="modal" onClick={e=>e.stopPropagation()}>

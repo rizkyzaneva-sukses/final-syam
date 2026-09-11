@@ -7,6 +7,7 @@ from datetime import date
 from ..database import get_db
 from ..auth import get_current_user, require_roles
 from .. import models
+from ..audit import log_audit
 
 router = APIRouter(tags=["modules"])
 
@@ -16,9 +17,16 @@ def get_or_404(db, model, id, label="Not found"):
     if not x: raise HTTPException(404, label)
     return x
 
-def apply_update(obj, data, db):
-    for k,v in data.model_dump(exclude_unset=True).items(): setattr(obj,k,v)
-    db.commit(); db.refresh(obj); return obj
+def apply_update(obj, data, db, user=None, entity_name=None):
+    changes = []
+    for k,v in data.model_dump(exclude_unset=True).items():
+        old = getattr(obj, k, None)
+        setattr(obj, k, v)
+        if old != v: changes.append(f"{k}={v}")
+    db.commit(); db.refresh(obj)
+    if user and entity_name:
+        log_audit(db, user, "UPDATE", entity_name, obj.id, "; ".join(changes))
+    return obj
 
 # ──────────── CMO: CUSTOMERS ────────────
 class CustomerIn(BaseModel):
@@ -30,7 +38,7 @@ def customers(db:Session=Depends(get_db), user=Depends(get_current_user)):
 
 @router.post("/cmo/customers")
 def create_customer(data:CustomerIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER,models.Role.CMO_SUPPORT))):
-    x=models.Customer(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); return x
+    x=models.Customer(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); log_audit(db, "CREATE", "Customer", x.id, x.name); return x
 
 class CustomerUpdate(BaseModel):
     name:Optional[str]=None; country:Optional[str]=None; contact_name:Optional[str]=None; contact_info:Optional[str]=None; notes:Optional[str]=None
@@ -41,7 +49,7 @@ def update_customer(customer_id:int, data:CustomerUpdate, db:Session=Depends(get
 
 @router.delete("/cmo/customers/{customer_id}")
 def delete_customer(customer_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER))):
-    x=get_or_404(db,models.Customer,customer_id,"Customer not found"); db.delete(x); db.commit(); return {"ok":True}
+    x=get_or_404(db,models.Customer,customer_id,"Customer not found"); name=x.name; db.delete(x); db.commit(); log_audit(user, "DELETE", "Customer", customer_id, name); return {"ok":True}
 
 # ──────────── CMO: QUOTATIONS ────────────
 class QuotationIn(BaseModel):
@@ -98,7 +106,7 @@ def list_spk(db:Session=Depends(get_db), user=Depends(get_current_user)):
 
 @router.post("/cmo/spk")
 def create_spk(data:SPKIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER,models.Role.CMO_SUPPORT))):
-    x=models.SPK(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); return x
+    x=models.SPK(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); log_audit(user, "CREATE", "SPK", x.id, x.spk_no); return x
 
 @router.patch("/cmo/spk/{spk_id}")
 def update_spk(spk_id:int, data:SPKUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER))):
@@ -106,7 +114,7 @@ def update_spk(spk_id:int, data:SPKUpdate, db:Session=Depends(get_db), user=Depe
 
 @router.delete("/cmo/spk/{spk_id}")
 def delete_spk(spk_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER))):
-    x=get_or_404(db,models.SPK,spk_id); db.delete(x); db.commit(); return {"ok":True}
+    x=get_or_404(db,models.SPK,spk_id); info=x.spk_no; db.delete(x); db.commit(); log_audit(user, "DELETE", "SPK", spk_id, info); return {"ok":True}
 
 # ──────────── CFO: INVOICES ────────────
 class InvoiceIn(BaseModel):
@@ -121,7 +129,7 @@ def invoices(db:Session=Depends(get_db), user=Depends(get_current_user)):
 
 @router.post("/cfo/invoices")
 def create_invoice(data:InvoiceIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CFO_MANAGER,models.Role.FINANCE_SUPPORT))):
-    x=models.Invoice(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); return x
+    x=models.Invoice(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); log_audit(user, "CREATE", "Invoice", x.id, x.invoice_no); return x
 
 @router.patch("/cfo/invoices/{inv_id}")
 def update_invoice(inv_id:int, data:InvoiceUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CFO_MANAGER))):
@@ -129,7 +137,7 @@ def update_invoice(inv_id:int, data:InvoiceUpdate, db:Session=Depends(get_db), u
 
 @router.delete("/cfo/invoices/{inv_id}")
 def delete_invoice(inv_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CFO_MANAGER))):
-    x=get_or_404(db,models.Invoice,inv_id); db.delete(x); db.commit(); return {"ok":True}
+    x=get_or_404(db,models.Invoice,inv_id); info=x.invoice_no; db.delete(x); db.commit(); log_audit(user, "DELETE", "Invoice", inv_id, info); return {"ok":True}
 
 # ──────────── CFO: PURCHASE ORDERS ────────────
 class POIn(BaseModel):
@@ -144,7 +152,7 @@ def list_pos(db:Session=Depends(get_db), user=Depends(get_current_user)):
 
 @router.post("/cfo/purchase-orders")
 def create_po(data:POIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CFO_MANAGER,models.Role.FINANCE_SUPPORT))):
-    x=models.PurchaseOrder(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); return x
+    x=models.PurchaseOrder(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); log_audit(user, "CREATE", "PurchaseOrder", x.id, x.po_no); return x
 
 @router.patch("/cfo/purchase-orders/{po_id}")
 def update_po(po_id:int, data:POUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CFO_MANAGER))):
@@ -152,7 +160,7 @@ def update_po(po_id:int, data:POUpdate, db:Session=Depends(get_db), user=Depends
 
 @router.delete("/cfo/purchase-orders/{po_id}")
 def delete_po(po_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CFO_MANAGER))):
-    x=get_or_404(db,models.PurchaseOrder,po_id); db.delete(x); db.commit(); return {"ok":True}
+    x=get_or_404(db,models.PurchaseOrder,po_id); info=x.po_no; db.delete(x); db.commit(); log_audit(user, "DELETE", "PurchaseOrder", po_id, info); return {"ok":True}
 
 # ──────────── CFO: PAYMENTS ────────────
 class PaymentIn(BaseModel):
@@ -279,7 +287,7 @@ def employees(db:Session=Depends(get_db), user=Depends(get_current_user)):
 
 @router.post("/chro/employees")
 def create_employee(data:EmployeeIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CHRO_MANAGER,models.Role.HR_SUPPORT))):
-    x=models.Employee(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); return x
+    x=models.Employee(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); log_audit(user, "CREATE", "Employee", x.id, x.name); return x
 
 @router.patch("/chro/employees/{emp_id}")
 def update_employee(emp_id:int, data:EmployeeIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CHRO_MANAGER))):
@@ -347,7 +355,7 @@ def list_issues(db:Session=Depends(get_db), user=Depends(get_current_user)):
 
 @router.post("/chro/issues")
 def create_issue(data:IssueIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CHRO_MANAGER,models.Role.HR_SUPPORT))):
-    x=models.EmployeeIssue(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); return x
+    x=models.EmployeeIssue(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); log_audit(user, "CREATE", "EmployeeIssue", x.id, x.issue_type); return x
 
 @router.patch("/chro/issues/{iss_id}")
 def update_issue(iss_id:int, data:IssueUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CHRO_MANAGER))):
@@ -355,7 +363,7 @@ def update_issue(iss_id:int, data:IssueUpdate, db:Session=Depends(get_db), user=
 
 @router.delete("/chro/issues/{iss_id}")
 def delete_issue(iss_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CHRO_MANAGER))):
-    x=get_or_404(db,models.EmployeeIssue,iss_id); db.delete(x); db.commit(); return {"ok":True}
+    x=get_or_404(db,models.EmployeeIssue,iss_id); info=x.issue_type; db.delete(x); db.commit(); log_audit(user, "DELETE", "EmployeeIssue", iss_id, info); return {"ok":True}
 
 # ──────────── CEO: DECISIONS ────────────
 class DecisionIn(BaseModel):
@@ -370,7 +378,7 @@ def decisions(db:Session=Depends(get_db), user=Depends(require_roles(models.Role
 
 @router.post("/ceo/decisions")
 def create_decision(data:DecisionIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CEO))):
-    x=models.CEODecision(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); return x
+    x=models.CEODecision(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); log_audit(user, "CREATE", "CEODecision", x.id, x.subject); return x
 
 @router.patch("/ceo/decisions/{dec_id}")
 def update_decision(dec_id:int, data:DecisionUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CEO))):
@@ -378,7 +386,7 @@ def update_decision(dec_id:int, data:DecisionUpdate, db:Session=Depends(get_db),
 
 @router.delete("/ceo/decisions/{dec_id}")
 def delete_decision(dec_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CEO))):
-    x=get_or_404(db,models.CEODecision,dec_id); db.delete(x); db.commit(); return {"ok":True}
+    x=get_or_404(db,models.CEODecision,dec_id); info=x.subject; db.delete(x); db.commit(); log_audit(user, "DELETE", "CEODecision", dec_id, info); return {"ok":True}
 
 # ──────────── EXCEPTIONS ────────────
 class ExceptionIn(BaseModel):
@@ -393,7 +401,7 @@ def list_exceptions(db:Session=Depends(get_db), user=Depends(get_current_user)):
 
 @router.post("/exceptions")
 def create_exception(data:ExceptionIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER,models.Role.COO_MANAGER,models.Role.CEO,models.Role.CMO_SUPPORT))):
-    x=models.ExceptionItem(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); return x
+    x=models.ExceptionItem(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); log_audit(user, "CREATE", "ExceptionItem", x.id, x.title); return x
 
 @router.patch("/exceptions/{exc_id}")
 def update_exception(exc_id:int, data:ExceptionUpdate, db:Session=Depends(get_db), user=Depends(get_current_user)):
@@ -401,7 +409,7 @@ def update_exception(exc_id:int, data:ExceptionUpdate, db:Session=Depends(get_db
 
 @router.delete("/exceptions/{exc_id}")
 def delete_exception(exc_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CEO))):
-    x=get_or_404(db,models.ExceptionItem,exc_id); db.delete(x); db.commit(); return {"ok":True}
+    x=get_or_404(db,models.ExceptionItem,exc_id); info=x.title; db.delete(x); db.commit(); log_audit(user, "DELETE", "ExceptionItem", exc_id, info); return {"ok":True}
 
 # ──────────── TASKS ────────────
 class TaskIn(BaseModel):
@@ -416,7 +424,7 @@ def list_tasks(db:Session=Depends(get_db), user=Depends(get_current_user)):
 
 @router.post("/tasks")
 def create_task(data:TaskIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER,models.Role.COO_MANAGER,models.Role.CEO,models.Role.CMO_SUPPORT))):
-    x=models.Task(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); return x
+    x=models.Task(**data.model_dump()); db.add(x); db.commit(); db.refresh(x); log_audit(user, "CREATE", "Task", x.id, x.title); return x
 
 @router.patch("/tasks/{task_id}")
 def update_task(task_id:int, data:TaskUpdate, db:Session=Depends(get_db), user=Depends(get_current_user)):
@@ -424,9 +432,45 @@ def update_task(task_id:int, data:TaskUpdate, db:Session=Depends(get_db), user=D
 
 @router.delete("/tasks/{task_id}")
 def delete_task(task_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CEO))):
-    x=get_or_404(db,models.Task,task_id); db.delete(x); db.commit(); return {"ok":True}
+    x=get_or_404(db,models.Task,task_id); info=x.title; db.delete(x); db.commit(); log_audit(user, "DELETE", "Task", task_id, info); return {"ok":True}
 
 # ──────────── USERS ────────────
 @router.get("/users")
 def list_users(db:Session=Depends(get_db), user=Depends(get_current_user)):
     return [{"id":u.id,"name":u.name,"role":u.role.value} for u in db.query(models.User).filter(models.User.is_active==True).order_by(models.User.name).all()]
+
+# ──────────── AUDIT LOG ────────────
+@router.get("/audit-log")
+def list_audit_log(db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CEO))):
+    logs = db.query(models.AuditLog).order_by(desc(models.AuditLog.id)).limit(100).all()
+    result = []
+    for l in logs:
+        u = db.query(models.User).get(l.user_id) if l.user_id else None
+        result.append({
+            "id": l.id, "user": u.name if u else "-", "action": l.action,
+            "entity": l.entity, "entity_id": l.entity_id, "detail": l.detail,
+            "created_at": l.created_at,
+        })
+    return result
+
+# ──────────── CFO: OUTSTANDING CALCULATION ────────────
+@router.get("/cfo/outstanding-summary")
+def outstanding_summary(db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CFO_MANAGER,models.Role.CEO))):
+    from sqlalchemy import func
+    rows = db.query(
+        models.Invoice.order_fk,
+        func.sum(models.Invoice.amount).label("total_amount"),
+        func.sum(models.Invoice.paid_amount).label("total_paid"),
+    ).group_by(models.Invoice.order_fk).all()
+    result = []
+    for r in rows:
+        order = db.query(models.Order).get(r.order_fk) if r.order_fk else None
+        outstanding = float(r.total_amount or 0) - float(r.total_paid or 0)
+        result.append({
+            "order_id": order.order_id if order else "-",
+            "buyer": order.buyer if order else "-",
+            "total_amount": float(r.total_amount or 0),
+            "total_paid": float(r.total_paid or 0),
+            "outstanding": outstanding,
+        })
+    return result

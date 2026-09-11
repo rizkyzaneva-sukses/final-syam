@@ -29,6 +29,7 @@ import EmployeePage from './pages/EmployeePage';
 import TrainingPage from './pages/TrainingPage';
 import PerformancePage from './pages/PerformancePage';
 import EmployeeIssuePage from './pages/EmployeeIssuePage';
+import AuditLogPage from './pages/AuditLogPage';
 import Layout from './components/Layout';
 import {getToken} from './api';
 import './styles.css';
@@ -69,6 +70,7 @@ function App(){return <BrowserRouter><Routes>
     <Route path="chro/performance" element={<PerformancePage/>}/>
     <Route path="chro/issues" element={<EmployeeIssuePage/>}/>
     {/* Common */}
+    <Route path="audit-log" element={<AuditLogPage/>}/>
     <Route path="exceptions" element={<ExceptionPage/>}/>
     <Route path="tasks" element={<TaskPage/>}/>
   </Route>
