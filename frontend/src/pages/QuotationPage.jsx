@@ -12,7 +12,7 @@ export default function QuotationPage(){
   const [q,setQ]=useState(''),[filterStatus,setFilterStatus]=useState('');
   const [form,setForm]=useState(null),[saving,setSaving]=useState(false);
 
-  function load(){Promise.all([api('/cmo/quotations'),api('/orders')]).then(([q,o])=>{setList(q);setOrders(o)}).catch(e=>setErr(e.message))}
+  function load(){Promise.all([api('/cmo/quotations'),api('/orders')]).then(([ql,ol])=>{setList(ql);setOrders(ol)}).catch(e=>setErr(e.message))}
   useEffect(load,[]);
 
   function filtered(){
