@@ -133,7 +133,23 @@ def create_invoice(data:InvoiceIn, db:Session=Depends(get_db), user=Depends(requ
 
 @router.patch("/cfo/invoices/{inv_id}")
 def update_invoice(inv_id:int, data:InvoiceUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CFO_MANAGER))):
-    return apply_update(get_or_404(db,models.Invoice,inv_id,"Invoice not found"), data, db)
+    x = get_or_404(db,models.Invoice,inv_id,"Invoice not found")
+    result = apply_update(x, data, db)
+    # Auto-update order.finance_status
+    if x.order_fk and (data.status or data.paid_amount is not None):
+        from sqlalchemy import func
+        total = db.query(func.coalesce(func.sum(models.Invoice.amount),0)).filter(models.Invoice.order_fk==x.order_fk).scalar() or 0
+        paid = db.query(func.coalesce(func.sum(models.Invoice.paid_amount),0)).filter(models.Invoice.order_fk==x.order_fk).scalar() or 0
+        order = db.query(models.Order).get(x.order_fk)
+        if order:
+            if float(paid) >= float(total) and float(total) > 0:
+                order.finance_status = "PAID"
+            elif float(paid) > 0:
+                order.finance_status = "PARTIAL"
+            else:
+                order.finance_status = "UNPAID"
+            db.commit()
+    return result
 
 @router.delete("/cfo/invoices/{inv_id}")
 def delete_invoice(inv_id:int, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CFO_MANAGER))):
@@ -317,8 +333,13 @@ class ShipmentGateIn(BaseModel):
 @router.patch("/cfo/shipments/{shipment_id}/gate")
 def shipment_gate(shipment_id:int, data:ShipmentGateIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CFO_MANAGER))):
     x=get_or_404(db,models.Shipment,shipment_id,"Shipment not found")
-    if float(x.outstanding_amount or 0) > 0 and data.finance_gate in ["CLEAR","SHIPPED"] and data.ceo_approval!="APPROVED":
-        raise HTTPException(400,"Outstanding shipment requires CEO approval")
+    # Check outstanding from invoices
+    from sqlalchemy import func
+    total_inv = db.query(func.coalesce(func.sum(models.Invoice.amount), 0)).filter(models.Invoice.order_fk == x.order_fk).scalar() or 0
+    total_paid = db.query(func.coalesce(func.sum(models.Invoice.paid_amount), 0)).filter(models.Invoice.order_fk == x.order_fk).scalar() or 0
+    outstanding = float(total_inv) - float(total_paid)
+    if outstanding > 0 and data.finance_gate in ["CLEAR","SHIPPED"] and data.ceo_approval!="APPROVED":
+        raise HTTPException(400,f"Outstanding Rp {outstanding:,.0f} requires CEO approval")
     x.finance_gate=data.finance_gate
     if data.ceo_approval: x.ceo_approval=data.ceo_approval
     db.commit(); db.refresh(x); return x
