@@ -1,7 +1,7 @@
 import React,{useEffect,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {api} from '../api';
-import {Factory,Package,Truck,ClipboardList} from 'lucide-react';
+import {Factory,Package,Truck,ClipboardList,CheckSquare} from 'lucide-react';
 
 export default function COOHome(){
   const [data,setData]=useState(null),[err,setErr]=useState('');
@@ -19,6 +19,8 @@ export default function COOHome(){
           <Link to="/coo/material-requests" className="qlink"><Truck size={20}/><div><b>Material Requests</b><small>Kelola permintaan material produksi</small></div></Link>
           <Link to="/coo/production" className="qlink"><Factory size={20}/><div><b>Production Queue</b><small>Input & monitor production movements</small></div></Link>
           <Link to="/coo/wip" className="qlink"><Package size={20}/><div><b>WIP Tracking</b><small>Work-in-progress per proses</small></div></Link>
+          <Link to="/coo/qc" className="qlink"><CheckSquare size={20}/><div><b>QC Records</b><small>Quality control records & inspection</small></div></Link>
+          <Link to="/cfo/shipments" className="qlink"><Truck size={20}/><div><b>Shipments</b><small>Tracking pengiriman</small></div></Link>
         </div>
       </section>
       <section className="panel">
@@ -26,5 +28,4 @@ export default function COOHome(){
         <div className="flow-list">{data.flows.map((x,i)=><div className="flow-row" key={i}><b>{i+1}</b><span>{x}</span></div>)}</div>
       </section>
     </div>
-  </div>
-}
+  </div>}

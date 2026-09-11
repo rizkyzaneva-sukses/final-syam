@@ -19,6 +19,7 @@ export default function CHROHome(){
           <Link to="/chro/employees" className="qlink"><Users size={20}/><div><b>Employee Management</b><small>Kelola data karyawan</small></div></Link>
           <Link to="/chro/training" className="qlink"><BookOpen size={20}/><div><b>Training Records</b><small>Catatan pelatihan karyawan</small></div></Link>
           <Link to="/chro/performance" className="qlink"><BarChart3 size={20}/><div><b>Performance Reviews</b><small>Penilaian kinerja karyawan</small></div></Link>
+          <Link to="/chro/issues" className="qlink"><AlertTriangle size={20}/><div><b>Employee Issues</b><small>Track permasalahan karyawan</small></div></Link>
         </div>
       </section>
       <section className="panel">
@@ -26,5 +27,4 @@ export default function CHROHome(){
         <div className="flow-list">{data.flows.map((x,i)=><div className="flow-row" key={i}><b>{i+1}</b><span>{x}</span></div>)}</div>
       </section>
     </div>
-  </div>
-}
+  </div>}

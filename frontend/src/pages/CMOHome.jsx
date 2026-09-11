@@ -1,7 +1,7 @@
 import React,{useEffect,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {api} from '../api';
-import {ShoppingCart,Users,FileText,ClipboardList,Package} from 'lucide-react';
+import {ShoppingCart,Users,FileText,ClipboardList,Package,CheckSquare} from 'lucide-react';
 
 export default function CMOHome(){
   const [data,setData]=useState(null),[err,setErr]=useState('');
@@ -18,6 +18,9 @@ export default function CMOHome(){
         <div className="quick-links">
           <Link to="/cmo/orders" className="qlink"><ShoppingCart size={20}/><div><b>Order Management</b><small>Kelola semua order dari buyer</small></div></Link>
           <Link to="/cmo/customers" className="qlink"><Users size={20}/><div><b>Customer / Buyer</b><small>Kelola data customer & kontak</small></div></Link>
+          <Link to="/cmo/quotations" className="qlink"><FileText size={20}/><div><b>Quotations</b><small>Kelola penawaran harga</small></div></Link>
+          <Link to="/cmo/samples" className="qlink"><ClipboardList size={20}/><div><b>Sample / PPM</b><small>Tracking sample production</small></div></Link>
+          <Link to="/cmo/spk" className="qlink"><CheckSquare size={20}/><div><b>SPK</b><small>Surat perintah kerja</small></div></Link>
         </div>
       </section>
       <section className="panel">
@@ -25,5 +28,4 @@ export default function CMOHome(){
         <div className="flow-list">{data.flows.map((x,i)=><div className="flow-row" key={i}><b>{i+1}</b><span>{x}</span></div>)}</div>
       </section>
     </div>
-  </div>
-}
+  </div>}

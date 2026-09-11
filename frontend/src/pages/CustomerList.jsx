@@ -41,7 +41,7 @@ export default function CustomerList(){
     <div className="search-bar"><Search size={16}/><input placeholder="Cari nama / negara..." value={q} onChange={e=>setQ(e.target.value)}/></div>
     <div className="table-scroll"><table><thead><tr><th>Nama</th><th>Negara</th><th>Kontak</th><th>Telepon/Email</th><th>Catatan</th><th>Aksi</th></tr></thead>
     <tbody>{f2.map(c=><tr key={c.id}><td><b>{c.name}</b></td><td>{c.country||'-'}</td><td>{c.contact_name||'-'}</td><td>{c.contact_info||'-'}</td><td className="td-sm">{c.notes||'-'}</td>
-    <td className="td-action"><button className="icon-btn" onClick={()=>setForm({...c})} title="Edit"><Edit2 size={15}/></button>{/* <button className="icon-btn danger" onClick={()=>del(c.id)} title="Hapus"><Trash2 size={15}/></button> */}</td></tr>)}
+    <td className="td-action"><button className="icon-btn" onClick={()=>setForm({...c})} title="Edit"><Edit2 size={15}/></button><button className="icon-btn danger" onClick={()=>del(c.id)} title="Hapus"><Trash2 size={15}/></button></td></tr>)}
     {f2.length===0&&<tr><td colSpan={6} className="empty">Belum ada data</td></tr>}</tbody></table></div>
 
     {form&&<div className="modal-bg" onClick={()=>setForm(null)}>

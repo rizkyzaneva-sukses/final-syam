@@ -24,7 +24,9 @@ def morning_priority(db: Session = Depends(get_db), user: User = Depends(get_cur
 
 @router.get("/wip-capacity")
 def wip_capacity(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    rows = db.query(CapacitySnapshot).filter(CapacitySnapshot.snapshot_date==date.today()).all()
+    # Get latest snapshot per process (not filtered by today)
+    subq = db.query(CapacitySnapshot.process, func.max(CapacitySnapshot.id).label("max_id")).group_by(CapacitySnapshot.process).subquery()
+    rows = db.query(CapacitySnapshot).join(subq, CapacitySnapshot.id == subq.c.max_id).all()
     return [{"process":r.process,"capacity":r.capacity,"planned_load":r.planned_load,"current_wip":r.current_wip,"utilization":round((r.planned_load/r.capacity)*100,1) if r.capacity else 0} for r in rows]
 
 @router.get("/forecast")
