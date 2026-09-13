@@ -1,11 +1,13 @@
 import React,{useEffect,useState} from 'react';
+import {useRole} from '../components/Access';
 import {api} from '../api';
 import {Plus,Edit2,X,Check,Search,Truck} from 'lucide-react';
 
 const empty={shipment_fk:'',confirmed_by_customer:'',feedback:'',status:'PENDING'};
-const statusOpts=['PENDING','CONFIRMED','REJECTED'];
+const statusOpts=['PENDING','CONFIRMED','ISSUE'];
 
 export default function DeliveryPage(){
+  const canWrite=['CMO_MANAGER','CMO_SUPPORT'].includes(useRole());
   const [list,setList]=useState([]),[shipments,setShipments]=useState([]);
   const [err,setErr]=useState('');
   const [q,setQ]=useState(''),[filterStatus,setFilterStatus]=useState('');
@@ -44,17 +46,17 @@ export default function DeliveryPage(){
   const totalCount=list.length;
   const pendingCount=list.filter(d=>d.status==='PENDING').length;
   const confirmedCount=list.filter(d=>d.status==='CONFIRMED').length;
-  const rejectedCount=list.filter(d=>d.status==='REJECTED').length;
+  const issueCount=list.filter(d=>d.status==='ISSUE').length;
 
   return <div className="page">
     <div className="page-title"><div><h1><Truck size={22}/> Deliveries</h1><p>{totalCount} total delivery</p></div>
-      <button className="btn primary" onClick={()=>setForm({...empty})}><Plus size={16}/> Tambah Delivery</button></div>
+      {canWrite&&<button className="btn primary" onClick={()=>setForm({...empty})}><Plus size={16}/> Tambah Delivery</button>}</div>
     {err&&<div className="notice danger">{err}</div>}
     <div className="cards">
       <div className="stat blue"><strong>{totalCount}</strong><span>Total Delivery</span></div>
       <div className="stat amber"><strong>{pendingCount}</strong><span>PENDING</span></div>
       <div className="stat green"><strong>{confirmedCount}</strong><span>CONFIRMED</span></div>
-      <div className="stat red"><strong>{rejectedCount}</strong><span>REJECTED</span></div>
+      <div className="stat red"><strong>{issueCount}</strong><span>ISSUE</span></div>
     </div>
     <div className="filter-bar">
       <div className="search-bar"><Search size={16}/><input placeholder="Cari shipment, customer..." value={q} onChange={e=>setQ(e.target.value)}/></div>
@@ -65,9 +67,9 @@ export default function DeliveryPage(){
       <td><b>{shipmentLabel(d.shipment_fk)}</b></td>
       <td>{d.confirmed_by_customer||'-'}</td>
       <td className="td-ellipsis">{d.feedback||'-'}</td>
-      <td><span className={'badge '+(d.status==='CONFIRMED'?'green':d.status==='REJECTED'?'red':'amber')}>{d.status}</span></td>
+      <td><span className={'badge '+(d.status==='CONFIRMED'?'green':d.status==='ISSUE'?'red':'amber')}>{d.status}</span></td>
       <td className="td-action">
-        <button className="icon-btn" onClick={()=>setForm({...d,shipment_fk:d.shipment_fk||'',confirmed_by_customer:d.confirmed_by_customer||'',feedback:d.feedback||''})} title="Edit"><Edit2 size={15}/></button>
+        {canWrite&&d.status!=='CONFIRMED'&&<button className="icon-btn" onClick={()=>setForm({...d,shipment_fk:d.shipment_fk||'',confirmed_by_customer:d.confirmed_by_customer||'',feedback:d.feedback||''})} title="Edit"><Edit2 size={15}/></button>}
       </td>
     </tr>)}
     {f2.length===0&&<tr><td colSpan={5} className="empty">Tidak ada delivery</td></tr>}</tbody></table></div>
@@ -77,11 +79,12 @@ export default function DeliveryPage(){
       <form onSubmit={save}>
         <div className="form-grid">
           <label>Shipment *<select required value={form.shipment_fk} onChange={e=>setForm({...form,shipment_fk:e.target.value})}>
-            <option value="">Pilih shipment...</option>{shipments.map(s=><option key={s.id} value={s.id}>{s.shipment_no||'Shipment #'+s.id}</option>)}
+            <option value="">Pilih shipment...</option>{shipments.filter(s=>s.status==='SHIPPED').map(s=><option key={s.id} value={s.id}>{s.shipment_no||'Shipment #'+s.id}</option>)}
           </select></label>
           <label>Status<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>{statusOpts.map(s=><option key={s}>{s}</option>)}</select></label>
         </div>
-        <label>Confirmed By Customer<input value={form.confirmed_by_customer||''} onChange={e=>setForm({...form,confirmed_by_customer:e.target.value})} placeholder="Nama customer yang konfirmasi"/></label>
+        <label>Tanggal Konfirmasi<input type="date" required={form.status==='CONFIRMED'} value={form.confirmation_date||''} onChange={e=>setForm({...form,confirmation_date:e.target.value})}/></label>
+        <label>Confirmed By Customer<input required={form.status==='CONFIRMED'} value={form.confirmed_by_customer||''} onChange={e=>setForm({...form,confirmed_by_customer:e.target.value})} placeholder="Nama customer yang konfirmasi"/></label>
         <label>Feedback<textarea rows={3} value={form.feedback||''} onChange={e=>setForm({...form,feedback:e.target.value})} placeholder="Feedback dari customer..."/></label>
         <div className="modal-foot"><button type="button" className="btn" onClick={()=>setForm(null)}>Batal</button><button className="btn primary" disabled={saving}><Check size={14}/> {saving?'Menyimpan...':'Simpan'}</button></div>
       </form>

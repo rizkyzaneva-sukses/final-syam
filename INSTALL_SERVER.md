@@ -17,13 +17,12 @@ sudo usermod -aG docker $USER
 ```
 Logout/login sekali.
 
-## 2. Upload dan extract ZIP
+## 2. Ambil source dari GitHub
 ```bash
 sudo mkdir -p /opt/bos-syams
 sudo chown $USER:$USER /opt/bos-syams
+git clone https://github.com/rizkyzaneva-sukses/bos-syams.git /opt/bos-syams
 cd /opt/bos-syams
-unzip BOS_SYAMS_ALL_IN_V0.2.zip
-cd BOS_SYAMS_ALL_IN_V0.2
 ```
 
 ## 3. Buat environment production
@@ -55,23 +54,26 @@ Buka `https://DOMAIN_ANDA`.
 
 ## Update versi berikutnya
 1. Backup database.
-2. Upload source versi baru.
+2. Ambil source versi baru dengan `git pull --ff-only`.
 3. Pertahankan `.env`.
 4. Jalankan:
 ```bash
 docker compose --env-file .env -f docker-compose.prod.yml up -d --build
 ```
 
-## Backup manual
+## Backup, restore test, offsite, dan retensi
+Pasang `rclone` dan konfigurasikan remote terenkripsi yang terpisah dari server. Jalankan backup harian lewat cron/systemd timer; simpan konfigurasi remote di luar repo. Backup otomatis diuji dengan restore ke database sementara sebelum diunggah. Retensi lokal hanya berjalan setelah unggahan offsite berhasil.
 ```bash
-set -a; . ./.env; set +a
+export OFFSITE_REMOTE='remote:bos-syams/production'
+export BACKUP_RETENTION_DAYS=30
 ./deploy/backup.sh
 ```
-
-## Restore
+Lakukan uji pemulihan offsite berkala dengan mengunduh arsip ke direktori terpisah lalu jalankan:
 ```bash
-gunzip -c backups/NAMA_BACKUP.sql.gz | docker compose --env-file .env -f docker-compose.prod.yml exec -T db psql -U "$POSTGRES_USER" "$POSTGRES_DB"
+rclone copyto remote:bos-syams/production/NAMA_BACKUP.dump backups/NAMA_BACKUP.dump
+./deploy/verify_restore.sh backups/NAMA_BACKUP.dump
 ```
+Untuk pemulihan insiden ke database produksi, hentikan penulisan aplikasi, verifikasi file dump, buat database target bersih, dan gunakan `pg_restore --exit-on-error --no-owner --no-acl`. Jangan restore ke database produksi yang masih berisi data. Simpan backup lama hingga pemulihan tervalidasi.
 
 ## Jika belum punya domain
 Untuk testing gunakan docker-compose.yml biasa:

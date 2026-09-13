@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime, date
 from sqlalchemy import (Column, Integer, String, Float, Text, Boolean, Date,
-    DateTime, Numeric, Enum, ForeignKey)
+    DateTime, Numeric, Enum, ForeignKey, UniqueConstraint)
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -39,6 +39,14 @@ class Order(Base):
     id = Column(Integer, primary_key=True)
     order_id = Column(String(64), unique=True, index=True, nullable=False)
     buyer = Column(String(160), nullable=False)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    finance_gate_status = Column(String(32), default="PENDING", nullable=False)
+    finance_gate_notes = Column(Text, nullable=True)
+    finance_verified_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    finance_term_kind = Column(String(20), nullable=True)
+    required_dp_amount = Column(Numeric(18, 2), nullable=True)
+    payment_evidence_ref = Column(Text, nullable=True)
+    credit_due_date = Column(Date, nullable=True)
     order_type = Column(Enum(OrderType), nullable=False)
     order_date = Column(Date, default=date.today, nullable=False)
     buyer_deadline = Column(Date, nullable=True)
@@ -81,6 +89,7 @@ class ProductionMovement(Base):
     qty_reject = Column(Integer, default=0, nullable=False)
     status = Column(String(32), default="WAITING", nullable=False)
     pic_name = Column(String(120), nullable=True)
+    reject_reason = Column(Text, nullable=True)
     target_date = Column(Date, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -144,6 +153,15 @@ class Quotation(Base):
     order_fk = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
     quotation_no = Column(String(80), unique=True, nullable=False)
     amount = Column(Numeric(18,2), default=0, nullable=False)
+    pricing_breakdown = Column(Text, nullable=True)
+    hpp_total = Column(Numeric(18,2), default=0, nullable=False)
+    margin_amount = Column(Numeric(18,2), default=0, nullable=False)
+    margin_percent = Column(Numeric(8,2), default=0, nullable=False)
+    payment_plan = Column(Text, nullable=True)
+    approval_reason = Column(Text, nullable=True)
+    approved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    ceo_approved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    ceo_approval_reason = Column(Text, nullable=True)
     valid_until = Column(Date, nullable=True)
     status = Column(String(32), default="DRAFT", nullable=False)
     notes = Column(Text, nullable=True)
@@ -154,7 +172,9 @@ class SampleRecord(Base):
     id = Column(Integer, primary_key=True)
     order_fk = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
     article_code = Column(String(80), nullable=False)
+    article_id = Column(Integer, ForeignKey("articles.id"), nullable=True, index=True)
     status = Column(String(32), default="PROCESS", nullable=False)
+    customer_approved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     notes = Column(Text, nullable=True)
     requested_date = Column(Date, nullable=True)
     completed_date = Column(Date, nullable=True)
@@ -166,6 +186,8 @@ class SPK(Base):
     order_fk = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
     spk_no = Column(String(80), unique=True, nullable=False)
     status = Column(String(32), default="NEW", nullable=False)
+    version = Column(Integer, default=1, nullable=False)
+    snapshot = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -180,6 +202,46 @@ class MaterialRequest(Base):
     requested_by = Column(String(120), nullable=True)
     required_date = Column(Date, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+class BOMItem(Base):
+    __tablename__ = "bom_items"
+    __table_args__ = (UniqueConstraint("article_id", "material_name", "unit", name="uq_bom_article_material_unit"),)
+    id = Column(Integer, primary_key=True)
+    article_id = Column(Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=False, index=True)
+    material_name = Column(String(200), nullable=False)
+    unit = Column(String(40), nullable=False)
+    qty_per_unit = Column(Numeric(12, 4), nullable=False)
+    planned_unit_cost = Column(Numeric(18, 2), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+class MaterialConsumption(Base):
+    __tablename__ = "material_consumptions"
+    id = Column(Integer, primary_key=True)
+    bom_item_id = Column(Integer, ForeignKey("bom_items.id", ondelete="RESTRICT"), nullable=False, index=True)
+    qty = Column(Numeric(12, 4), nullable=False)
+    actual_unit_cost = Column(Numeric(18, 2), nullable=False)
+    evidence_ref = Column(Text, nullable=False)
+    recorded_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+class ProductionCostEntry(Base):
+    __tablename__ = "production_cost_entries"
+    id = Column(Integer, primary_key=True)
+    article_id = Column(Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=False, index=True)
+    category = Column(String(20), nullable=False)
+    amount = Column(Numeric(18, 2), nullable=False)
+    evidence_ref = Column(Text, nullable=False)
+    recorded_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+class CostReview(Base):
+    __tablename__ = "cost_reviews"
+    id = Column(Integer, primary_key=True)
+    order_fk = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, unique=True)
+    reviewed_total = Column(Numeric(18, 2), nullable=False)
+    evidence_ref = Column(Text, nullable=False)
+    reviewed_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    reviewed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 class PurchaseOrder(Base):
     __tablename__ = "purchase_orders"
@@ -203,6 +265,10 @@ class Invoice(Base):
     order_fk = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
     amount = Column(Numeric(18,2), default=0, nullable=False)
     paid_amount = Column(Numeric(18,2), default=0, nullable=False)
+    opening_paid_amount = Column(Numeric(18,2), default=0, nullable=False)
+    reconciliation_status = Column(String(32), default="VERIFIED", nullable=False)
+    reconciliation_evidence = Column(Text, nullable=True)
+    reconciled_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     due_date = Column(Date, nullable=True)
     status = Column(String(32), default="UNPAID", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -211,6 +277,7 @@ class Payment(Base):
     __tablename__ = "payments"
     id = Column(Integer, primary_key=True)
     invoice_no = Column(String(80), nullable=False)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=True, index=True)
     amount = Column(Numeric(18,2), nullable=False)
     payment_date = Column(Date, nullable=True)
     method = Column(String(80), nullable=True)
@@ -222,6 +289,8 @@ class QCRecord(Base):
     id = Column(Integer, primary_key=True)
     order_fk = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
     article_code = Column(String(80), nullable=False)
+    article_id = Column(Integer, ForeignKey("articles.id"), nullable=True, index=True)
+    rework_parent_id = Column(Integer, ForeignKey("qc_records.id"), nullable=True)
     process = Column(String(80), nullable=False)
     total_checked = Column(Integer, default=0, nullable=False)
     total_pass = Column(Integer, default=0, nullable=False)
@@ -238,6 +307,9 @@ class Shipment(Base):
     shipment_no = Column(String(80), unique=True, nullable=False)
     status = Column(String(32), default="NOT_READY", nullable=False)
     finance_gate = Column(String(32), default="PENDING", nullable=False)
+    packing_status = Column(String(32), default="PENDING", nullable=False)
+    finance_assessed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    approved_outstanding = Column(Numeric(18,2), nullable=True)
     ceo_approval = Column(String(32), nullable=True)
     notes = Column(Text, nullable=True)
     delivery_date = Column(Date, nullable=True)

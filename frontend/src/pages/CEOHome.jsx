@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {api} from '../api';
 import {Crown,AlertTriangle,ClipboardList,Users} from 'lucide-react';
+import KPIOverview from '../components/KPIOverview';
 
 export default function CEOHome(){
   const [data,setData]=useState(null),[err,setErr]=useState('');
@@ -12,6 +13,7 @@ export default function CEOHome(){
   return <div className="page">
     <div className="page-title"><div><h1>CEO Control</h1><p>Strategic oversight & decision making</p></div></div>
     <div className="cards">{data.cards.map((c,i)=>{const I=icons[i]||Crown;return <div className="stat blue" key={i}><div className="stat-icon"><I size={22}/></div><strong>{c.value}</strong><span>{c.label}</span></div>})}</div>
+    <KPIOverview kpis={data.kpis}/>
     <div className="grid2">
       <section className="panel">
         <div className="panel-head"><h2>Akses Cepat</h2></div>

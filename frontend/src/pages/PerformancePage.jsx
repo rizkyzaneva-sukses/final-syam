@@ -1,4 +1,5 @@
 import React,{useEffect,useState} from 'react';
+import {nullableNumber} from '../business';
 import {api} from '../api';
 import {Plus,Edit2,X,Check,Search} from 'lucide-react';
 
@@ -24,7 +25,7 @@ export default function PerformancePage(){
   async function save(ev){
     ev.preventDefault(); setSaving(true);
     try{
-      const payload={...form,employee_id:parseInt(form.employee_id),quality:parseFloat(form.quality)||null,responsibility:parseFloat(form.responsibility)||null,discipline:parseFloat(form.discipline)||null,spiritual:parseFloat(form.spiritual)||null,attitude:parseFloat(form.attitude)||null,skill:parseFloat(form.skill)||null};
+      const payload={...form,employee_id:parseInt(form.employee_id),quality:nullableNumber(form.quality),responsibility:nullableNumber(form.responsibility),discipline:nullableNumber(form.discipline),spiritual:nullableNumber(form.spiritual),attitude:nullableNumber(form.attitude),skill:nullableNumber(form.skill)};
       if(form.id){await api('/chro/performances/'+form.id,{method:'PATCH',body:JSON.stringify(payload)});}
       else{await api('/chro/performances',{method:'POST',body:JSON.stringify(payload)});}
       setForm(null); load();
@@ -46,13 +47,13 @@ export default function PerformancePage(){
     <tbody>{f2.map(p=><tr key={p.id}>
       <td><b>{empName(p.employee_id)}</b></td>
       <td>{p.period}</td>
-      <td>{p.quality||'-'}</td>
-      <td>{p.responsibility||'-'}</td>
-      <td>{p.discipline||'-'}</td>
-      <td>{p.skill||'-'}</td>
-      <td><b>{p.total_score||'-'}</b></td>
+      <td>{p.quality??'-'}</td>
+      <td>{p.responsibility??'-'}</td>
+      <td>{p.discipline??'-'}</td>
+      <td>{p.skill??'-'}</td>
+      <td><b>{p.total_score??'-'}</b></td>
       <td className="td-action">
-        <button className="icon-btn" onClick={()=>setForm({...p,employee_id:p.employee_id,quality:p.quality||'',responsibility:p.responsibility||'',discipline:p.discipline||'',spiritual:p.spiritual||'',attitude:p.attitude||'',skill:p.skill||''})} title="Edit"><Edit2 size={15}/></button>
+        <button className="icon-btn" onClick={()=>setForm({...p,employee_id:p.employee_id,quality:p.quality??'',responsibility:p.responsibility??'',discipline:p.discipline??'',spiritual:p.spiritual??'',attitude:p.attitude??'',skill:p.skill??''})} title="Edit"><Edit2 size={15}/></button>
       </td>
     </tr>)}
     {f2.length===0&&<tr><td colSpan={8} className="empty">Belum ada penilaian</td></tr>}</tbody></table></div>

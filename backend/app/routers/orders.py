@@ -1,5 +1,5 @@
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from ..database import get_db
 from ..models import Order, Article, Role, User
@@ -7,13 +7,16 @@ from ..schemas import OrderCreate, OrderOut
 from ..auth import get_current_user, require_roles
 
 router = APIRouter(prefix="/orders", tags=["orders"])
+ORDER_READ_ROLES = (Role.CEO, Role.CMO_MANAGER, Role.CMO_SUPPORT, Role.CFO_MANAGER,
+                    Role.FINANCE_SUPPORT, Role.COO_MANAGER, Role.SAMPLE_PIC,
+                    Role.PRINTING_PIC, Role.PRODUCTION_PIC, Role.SHIPMENT_ADMIN)
 
 @router.get("", response_model=list[OrderOut])
-def list_orders(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return db.query(Order).options(joinedload(Order.articles)).order_by(Order.buyer_deadline.asc().nullslast()).all()
+def list_orders(limit:int=Query(500,ge=1,le=500), offset:int=Query(0,ge=0), db: Session = Depends(get_db), user: User = Depends(require_roles(*ORDER_READ_ROLES))):
+    return db.query(Order).options(joinedload(Order.articles)).order_by(Order.buyer_deadline.asc().nullslast(), Order.id).offset(offset).limit(limit).all()
 
 @router.get("/{order_id}", response_model=OrderOut)
-def get_order(order_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def get_order(order_id: str, db: Session = Depends(get_db), user: User = Depends(require_roles(*ORDER_READ_ROLES))):
     order = db.query(Order).options(joinedload(Order.articles)).filter(Order.order_id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -21,19 +24,30 @@ def get_order(order_id: str, db: Session = Depends(get_db), user: User = Depends
 
 @router.post("", response_model=OrderOut)
 def create_order(payload: OrderCreate, db: Session = Depends(get_db), user: User = Depends(require_roles(Role.CMO_MANAGER, Role.CMO_SUPPORT))):
-    # Generate SO-XXX format based on max existing SO-* orders
-    from sqlalchemy import func
-    max_so = db.query(func.max(Order.order_id)).filter(Order.order_id.like("SO-%")).scalar()
-    if max_so:
-        try:
-            next_num = int(max_so[3:]) + 1
-        except ValueError:
-            next_num = db.query(Order).count() + 1
-    else:
-        next_num = 1
-    oid = f"SO-{next_num:03d}"
-    order = Order(order_id=oid, buyer=payload.buyer, order_type=payload.order_type, buyer_deadline=payload.buyer_deadline, notes=payload.notes, created_by_id=user.id)
-    for a in payload.articles:
-        order.articles.append(Article(**a.model_dump(), sample_status="PROCESS" if a.sample_required else "NOT_REQUIRED"))
-    db.add(order); db.commit(); db.refresh(order)
-    return order
+    from uuid import uuid4
+    from ..models import Customer
+    from ..audit import log_audit
+    from sqlalchemy.exc import IntegrityError
+    # UUID-backed identifiers do not race or rely on lexical max ordering.
+    customer = db.get(Customer, payload.customer_id) if payload.customer_id else db.query(Customer).filter_by(name=payload.buyer).first()
+    if payload.customer_id and not customer:
+        raise HTTPException(404, "Customer not found")
+    if not customer:
+        customer = Customer(name=payload.buyer)
+        db.add(customer)
+    try:
+        db.flush()
+        order = Order(order_id=f"SO-{uuid4().hex[:16].upper()}", buyer=customer.name,
+            customer_id=customer.id, order_type=payload.order_type,
+            buyer_deadline=payload.buyer_deadline, notes=payload.notes, created_by_id=user.id)
+        for article in payload.articles:
+            order.articles.append(Article(**article.model_dump(), sample_status="PROCESS" if article.sample_required else "NOT_REQUIRED"))
+        db.add(order)
+        db.flush()
+        log_audit(db, user, "CREATE", "Order", order.id, order.order_id)
+        db.commit()
+        db.refresh(order)
+        return order
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Order identifier or customer conflicts with another request; retry") from exc

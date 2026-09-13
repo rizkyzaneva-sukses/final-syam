@@ -1,6 +1,6 @@
 import React,{useEffect,useState} from 'react';
 import {api} from '../api';
-import {Plus,Edit2,CheckCircle,AlertTriangle,X,Search,Filter} from 'lucide-react';
+import {Plus,Edit2,Check,CheckCircle,AlertTriangle,X,Search,Filter} from 'lucide-react';
 
 const empty={severity:'YELLOW',category:'',title:'',owner_role:'',owner_name:'',due_date:'',next_action:'',order_fk:'',status:'OPEN'};
 const sevOpts=['RED','YELLOW'];

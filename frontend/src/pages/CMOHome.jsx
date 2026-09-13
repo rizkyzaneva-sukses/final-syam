@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {api} from '../api';
 import {ShoppingCart,Users,FileText,ClipboardList,Package,CheckSquare} from 'lucide-react';
+import KPIOverview from '../components/KPIOverview';
 
 export default function CMOHome(){
   const [data,setData]=useState(null),[err,setErr]=useState('');
@@ -12,6 +13,7 @@ export default function CMOHome(){
   return <div className="page">
     <div className="page-title"><div><h1>CMO — Marketing & Order</h1><p>Dashboard utama divisi Commercial Marketing</p></div></div>
     <div className="cards">{data.cards.map((c,i)=>{const I=icons[i]||ShoppingCart;return <div className="stat blue" key={i}><div className="stat-icon"><I size={22}/></div><strong>{c.value}</strong><span>{c.label}</span></div>})}</div>
+    <KPIOverview kpis={data.kpis}/>
     <div className="grid2">
       <section className="panel">
         <div className="panel-head"><h2>Akses Cepat</h2></div>

@@ -132,7 +132,7 @@ class FlowEngine:
             )
 
         # Check all intermediate steps + the target step have prerequisites met
-        for i in range(current_idx + 1, target_idx + 1):
+        for i in range(1, target_idx + 1):
             step = steps[i]
             ok, reason = FlowEngine._check_step_prerequisite(order, step)
             if not ok:
@@ -147,146 +147,66 @@ class FlowEngine:
 
         Returns (bool, reason_string).
         """
+        from . import workflow as w
         db = Session.object_session(order)
         if not db:
-            return True, ""
-
-        oid = order.id
-
-        if step == "INVOICE":
-            inv = (
-                db.query(models.Invoice)
-                .filter(models.Invoice.order_fk == oid)
-                .first()
-            )
-            if not inv:
-                return False, "No invoice found"
-
-        elif step == "SAMPLE":
-            sr = (
-                db.query(models.SampleRecord)
-                .filter(models.SampleRecord.order_fk == oid)
-                .first()
-            )
-            if not sr:
-                return False, "No sample record found"
-
-        elif step == "SAMPLE_APPROVED":
-            samples = (
-                db.query(models.SampleRecord)
-                .filter(models.SampleRecord.order_fk == oid)
-                .all()
-            )
-            if not samples:
-                return False, "No sample records found"
-            if not any(s.status == "APPROVED" for s in samples):
-                return False, "No sample has APPROVED status"
-
-        elif step == "SPK":
-            spk = (
-                db.query(models.SPK)
-                .filter(models.SPK.order_fk == oid)
-                .first()
-            )
-            if not spk:
-                return False, "No SPK found"
-
-        elif step == "PRODUCTION":
-            total_movements = (
-                db.query(func.count(models.ProductionMovement.id))
-                .join(
-                    models.Article,
-                    models.ProductionMovement.article_id == models.Article.id,
-                )
-                .filter(models.Article.order_fk == oid)
-                .scalar()
-                or 0
-            )
-            if total_movements == 0:
-                return False, "No production movements found"
-            done_movements = (
-                db.query(func.count(models.ProductionMovement.id))
-                .join(
-                    models.Article,
-                    models.ProductionMovement.article_id == models.Article.id,
-                )
-                .filter(
-                    models.Article.order_fk == oid,
-                    models.ProductionMovement.status == "DONE",
-                )
-                .scalar()
-                or 0
-            )
-            if done_movements == total_movements:
-                return False, "All production movements are DONE"
-
-        elif step == "QC":
-            qc = (
-                db.query(models.QCRecord)
-                .filter(models.QCRecord.order_fk == oid)
-                .first()
-            )
-            if not qc:
-                return False, "No QC records found"
-
-        elif step == "SHIPMENT":
-            shp = (
-                db.query(models.Shipment)
-                .filter(models.Shipment.order_fk == oid)
-                .first()
-            )
-            if not shp:
-                return False, "No shipments found"
-            if shp.finance_gate != "CLEAR":
-                return (
-                    False,
-                    f"Finance gate is '{shp.finance_gate}', must be CLEAR",
-                )
-
-        elif step == "DELIVERED":
-            shipments = (
-                db.query(models.Shipment)
-                .filter(models.Shipment.order_fk == oid)
-                .all()
-            )
-            if not shipments:
-                return False, "No shipments found"
-            has_confirmed = False
-            for shp_item in shipments:
-                dc = (
-                    db.query(models.DeliveryConfirmation)
-                    .filter(
-                        models.DeliveryConfirmation.shipment_fk == shp_item.id,
-                        models.DeliveryConfirmation.status == "CONFIRMED",
-                    )
-                    .first()
-                )
-                if dc:
-                    has_confirmed = True
-                    break
-            if not has_confirmed:
-                return False, "No confirmed delivery confirmation found"
-
-        elif step == "CLOSED":
-            closings = (
-                db.query(models.OrderClosing)
-                .filter(models.OrderClosing.order_fk == oid)
-                .all()
-            )
-            if not closings:
-                return False, "No order closing records found"
-            if not all(c.order_close_status == "CLOSED" for c in closings):
-                return False, "Not all order closings are CLOSED"
-
+            return False, "No database session available for validation"
+        try:
+            if step == "INVOICE":
+                if not w.quotation_ready(db, order):
+                    return False, "Latest quotation must be approved by CFO"
+                if not w.finance_ready(db, order):
+                    return False, "CFO must approve the documented payment/DP assessment"
+            elif step == "SAMPLE":
+                if not db.query(models.SampleRecord).filter_by(order_fk=order.id).first():
+                    return False, "No sample record found"
+            elif step == "SAMPLE_APPROVED":
+                if not w.samples_ready(db, order):
+                    return False, "Latest sample for every required article needs CMO customer approval"
+            elif step == "SPK":
+                if not w.spk_ready(db, order):
+                    return False, "Latest SPK must be released with a versioned article snapshot"
+            elif step == "PRODUCTION":
+                w.production_ready(db, order)
+            elif step == "QC":
+                if not w.qc_ready(db, order):
+                    return False, "Latest final QC for every article must pass without unresolved rejects"
+            elif step == "SHIPMENT":
+                shipments = db.query(models.Shipment).filter_by(order_fk=order.id).all()
+                if not shipments:
+                    return False, "No shipments found"
+                for shipment in shipments:
+                    w.shipment_ready(db, shipment)
+                    if shipment.status not in ("SHIPPED", "DELIVERED"):
+                        return False, "All shipments must be dispatched"
+            elif step == "DELIVERED":
+                if not w.deliveries_ready(db, order):
+                    return False, "Every shipment requires customer confirmation"
+            elif step == "CLOSED":
+                rec = db.query(models.OrderClosing).filter_by(order_fk=order.id).first()
+                total, paid = w.invoices_total(db, order.id)
+                if not rec or rec.customer_close_status != "CLOSED" or rec.financial_close_status != "CLOSED" or rec.order_close_status != "CLOSED" or total <= 0 or paid < total:
+                    return False, "Separate customer/financial closing with zero outstanding required"
+        except HTTPException as exc:
+            return False, str(exc.detail)
         return True, ""
 
-    # ────── ADVANCE ──────
     @staticmethod
     def advance(order, target_step: str, user=None) -> dict:
         """Advance order to target_step with validation.
 
         Returns transition info dict.
         """
+        from .workflow import require
+        owners = {
+            "INVOICE": ("CFO_MANAGER",), "PPM": ("CMO_MANAGER", "COO_MANAGER"),
+            "SAMPLE": ("SAMPLE_PIC", "CMO_MANAGER"), "SAMPLE_APPROVED": ("CMO_MANAGER",),
+            "FOLLOW_UP": ("CMO_MANAGER",), "SPK": ("CMO_MANAGER",),
+            "PRODUCTION": ("COO_MANAGER",), "QC": ("COO_MANAGER", "PRODUCTION_PIC"),
+            "SHIPMENT": ("COO_MANAGER", "SHIPMENT_ADMIN"), "DELIVERED": ("CMO_MANAGER",),
+            "CLOSED": ("CMO_MANAGER", "CFO_MANAGER"),
+        }
+        require(user, *owners.get(target_step, ()))
         ok, reason = FlowEngine.can_transition(order, target_step)
         if not ok:
             raise HTTPException(400, reason)
@@ -315,11 +235,10 @@ class FlowEngine:
         }
         order.overall_status = status_map.get(target_step, order.overall_status)
 
-        db.commit()
-        db.refresh(order)
-
         detail = f"flow_step: {old_step} -> {target_step}"
         log_audit(db, user, "FLOW_ADVANCE", "Order", order.id, detail)
+        db.commit()
+        db.refresh(order)
 
         return {
             "order_id": order.order_id,

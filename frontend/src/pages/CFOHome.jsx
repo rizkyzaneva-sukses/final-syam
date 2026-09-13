@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {api} from '../api';
 import {DollarSign,AlertTriangle,Package,Truck} from 'lucide-react';
+import KPIOverview from '../components/KPIOverview';
 
 export default function CFOHome(){
   const [data,setData]=useState(null),[err,setErr]=useState('');
@@ -12,6 +13,7 @@ export default function CFOHome(){
   return <div className="page">
     <div className="page-title"><div><h1>CFO — Finance & Purchasing</h1><p>Dashboard utama divisi Finance</p></div></div>
     <div className="cards">{data.cards.map((c,i)=>{const I=icons[i]||DollarSign;return <div className="stat blue" key={i}><div className="stat-icon"><I size={22}/></div><strong>{typeof c.value==='number'&&c.value>1000000?'Rp '+c.value.toLocaleString('id-ID'):c.value}</strong><span>{c.label}</span></div>})}</div>
+    <KPIOverview kpis={data.kpis}/>
     <div className="grid2">
       <section className="panel">
         <div className="panel-head"><h2>Akses Cepat</h2></div>

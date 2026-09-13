@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-bos_syams}
       POSTGRES_USER: ${POSTGRES_USER:-bos}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
     volumes:
       - bos_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -17,18 +17,20 @@ services:
   backend:
     build: ./backend
     environment:
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-bos}:${POSTGRES_PASSWORD:-bos}@db:5432/${POSTGRES_DB:-bos_syams}
-      SECRET_KEY: ${SECRET_KEY:-replace-me-before-production}
-      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-720}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-bos}:${POSTGRES_PASSWORD:-local-development-only}@db:5432/${POSTGRES_DB:-bos_syams}
+      APP_ENV: development
+      SEED_DEMO: ${SEED_DEMO:-false}
+      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-60}
     depends_on:
       db:
         condition: service_healthy
+    security_opt: ["no-new-privileges:true"]
     restart: unless-stopped
 
   frontend:
     build: ./frontend
     ports:
-      - "${APP_PORT:-8080}:80"
+      - "127.0.0.1:${APP_PORT:-8080}:80"
     depends_on:
       - backend
     restart: unless-stopped

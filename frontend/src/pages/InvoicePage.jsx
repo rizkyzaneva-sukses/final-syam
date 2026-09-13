@@ -1,89 +1,33 @@
 import React,{useEffect,useState} from 'react';
 import {api} from '../api';
-import {Plus,Edit2,Trash2,X,Check,Search} from 'lucide-react';
+import {useRole} from '../components/Access';
+import FormModal from '../components/FormModal';
+import {statusTone} from '../business';
 
-const empty={invoice_no:'',order_fk:'',amount:'',paid_amount:'',due_date:'',status:'UNPAID'};
-const statusOpts=['UNPAID','PARTIAL','PAID'];
-const fmtRp=n=>'Rp '+Number(n||0).toLocaleString('id-ID');
-
+const money=n=>'Rp '+Number(n||0).toLocaleString('id-ID');
 export default function InvoicePage(){
-  const [list,setList]=useState([]),[orders,setOrders]=useState([]);
-  const [err,setErr]=useState('');
-  const [q,setQ]=useState(''),[filterStatus,setFilterStatus]=useState('');
-  const [form,setForm]=useState(null),[saving,setSaving]=useState(false);
-
-  function load(){Promise.all([api('/cfo/invoices'),api('/orders')]).then(([m,o])=>{setList(m);setOrders(o)}).catch(e=>setErr(e.message))}
-  useEffect(load,[]);
-
-  function filtered(){
-    return list.filter(m=>{
-      if(filterStatus&&m.status!==filterStatus) return false;
-      if(!q) return true;
-      const s=q.toLowerCase();
-      return m.invoice_no.toLowerCase().includes(s);
-    });
-  }
-
-  async function save(ev){
-    ev.preventDefault(); setSaving(true);
-    try{
-      const payload={...form,amount:parseFloat(form.amount)||0,paid_amount:parseFloat(form.paid_amount)||0,order_fk:form.order_fk?parseInt(form.order_fk):null};
-      if(form.id){
-        await api('/cfo/invoices/'+form.id,{method:'PATCH',body:JSON.stringify(payload)});
-      }else{
-        await api('/cfo/invoices',{method:'POST',body:JSON.stringify(payload)});
-      }
-      setForm(null); load();
-    }catch(x){alert(x.message)}
-    setSaving(false);
-  }
-
-  async function del(id){
-    if(!confirm('Hapus invoice ini?')) return;
-    try{await api('/cfo/invoices/'+id,{method:'DELETE'});load();}catch(x){alert(x.message)}
-  }
-
-  const f2=filtered();
-  function orderLabel(id){const o=orders.find(o=>o.id===id);return o?o.order_id:'-'}
-
-  return <div className="page">
-    <div className="page-title"><div><h1>Invoices</h1><p>{list.length} total invoice</p></div>
-      <button className="btn primary" onClick={()=>setForm({...empty})}><Plus size={16}/> Invoice Baru</button></div>
-    {err&&<div className="notice danger">{err}</div>}
-    <div className="filter-bar">
-      <div className="search-bar"><Search size={16}/><input placeholder="Cari invoice no..." value={q} onChange={e=>setQ(e.target.value)}/></div>
-      <div className="filter-pills">{statusOpts.map(s=><button key={s} className={'pill '+(filterStatus===s?'active '+s.toLowerCase():'')} onClick={()=>setFilterStatus(filterStatus===s?'':s)}>{s}</button>)}</div>
-    </div>
-    <div className="table-scroll"><table><thead><tr><th>Invoice No</th><th>Order</th><th>Amount</th><th>Paid</th><th>Remaining</th><th>Due Date</th><th>Status</th><th>Aksi</th></tr></thead>
-    <tbody>{f2.map(m=><tr key={m.id}>
-      <td><b>{m.invoice_no}</b></td><td>{orderLabel(m.order_fk)}</td><td>{fmtRp(m.amount)}</td><td>{fmtRp(m.paid_amount)}</td>
-      <td>{fmtRp(m.amount-m.paid_amount)}</td><td>{m.due_date||'-'}</td>
-      <td><span className={'badge '+(m.status==='PAID'?'green':m.status==='PARTIAL'?'amber':'red')}>{m.status}</span></td>
-      <td className="td-action">
-        <button className="icon-btn" onClick={()=>setForm({...m,order_fk:m.order_fk||''})} title="Edit"><Edit2 size={15}/></button>
-        <button className="icon-btn danger" onClick={()=>del(m.id)} title="Hapus"><Trash2 size={15}/></button>
-      </td>
-    </tr>)}
-    {f2.length===0&&<tr><td colSpan={8} className="empty">Tidak ada invoice</td></tr>}</tbody></table></div>
-    {form&&<div className="modal-bg" onClick={()=>setForm(null)}>
-    <div className="modal" onClick={e=>e.stopPropagation()}>
-      <div className="modal-head"><h2>{form.id?'Edit':'Tambah'} Invoice</h2><button className="icon-btn" onClick={()=>setForm(null)}><X size={18}/></button></div>
-      <form onSubmit={save}>
-        <div className="form-grid">
-          <label>Invoice No *<input required value={form.invoice_no} onChange={e=>setForm({...form,invoice_no:e.target.value})} placeholder="INV-001"/></label>
-          <label>Order<select value={form.order_fk} onChange={e=>setForm({...form,order_fk:e.target.value})}><option value="">Tidak terkait order</option>{orders.map(o=><option key={o.id} value={o.id}>{o.order_id} - {o.buyer}</option>)}</select></label>
-        </div>
-        <div className="form-grid">
-          <label>Amount *<input type="number" min={0} step="any" required value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})}/></label>
-          <label>Paid Amount<input type="number" min={0} step="any" value={form.paid_amount} onChange={e=>setForm({...form,paid_amount:e.target.value})}/></label>
-        </div>
-        <div className="form-grid">
-          <label>Due Date<input type="date" value={form.due_date} onChange={e=>setForm({...form,due_date:e.target.value})}/></label>
-          <label>Status<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>{statusOpts.map(s=><option key={s}>{s}</option>)}</select></label>
-        </div>
-        {form.amount&&form.paid_amount&&<div className="notice info">Remaining: {fmtRp(parseFloat(form.amount)-parseFloat(form.paid_amount))}</div>}
-        <div className="modal-foot"><button type="button" className="btn" onClick={()=>setForm(null)}>Batal</button><button className="btn primary" disabled={saving}><Check size={14}/> {saving?'Menyimpan...':'Simpan'}</button></div>
-      </form>
-    </div></div>}
-  </div>
+ const role=useRole(),canWrite=['CFO_MANAGER','FINANCE_SUPPORT'].includes(role),manager=role==='CFO_MANAGER';
+ const [invoices,setInvoices]=useState([]),[orders,setOrders]=useState([]),[payments,setPayments]=useState([]);
+ const [form,setForm]=useState(null),[payment,setPayment]=useState(null),[gate,setGate]=useState(null),[reconcile,setReconcile]=useState(null);
+ const [error,setError]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[query,setQuery]=useState('');
+ async function load(){try{const [i,o,p]=await Promise.all([api('/cfo/invoices'),api('/orders'),api('/cfo/payments')]);setInvoices(i);setOrders(o);setPayments(p);setError('')}catch(e){setError(e.message)}finally{setLoading(false)}}
+ useEffect(()=>{load()},[]);
+ async function save(e){e.preventDefault();setBusy(true);setError('');try{
+   if(form){const payload={amount:Number(form.amount),due_date:form.due_date};if(!form.id)Object.assign(payload,{invoice_no:form.invoice_no,order_fk:Number(form.order_fk)});await api('/cfo/invoices'+(form.id?'/'+form.id:''),{method:form.id?'PATCH':'POST',body:JSON.stringify(payload)});setForm(null)}
+   else if(payment){await api('/cfo/payments',{method:'POST',body:JSON.stringify({...payment,amount:Number(payment.amount)})});setPayment(null)}
+   else if(reconcile){await api(`/cfo/invoices/${reconcile.id}/reconcile`,{method:'POST',body:JSON.stringify({opening_paid_amount:Number(reconcile.opening_paid_amount),evidence_ref:reconcile.evidence_ref})});setReconcile(null)}
+   else {await api(`/cfo/orders/${gate.order_fk}/finance-gate`,{method:'POST',body:JSON.stringify({action:gate.action,reason:gate.reason,term_kind:gate.term_kind,required_dp_amount:gate.term_kind==='DP'?Number(gate.required_dp_amount):null,evidence_ref:gate.evidence_ref,credit_due_date:gate.credit_due_date})});setGate(null)}
+   await load();
+ }catch(x){setError(x.message)}finally{setBusy(false)}}
+ async function remove(id){if(!confirm('Hapus invoice tanpa pembayaran ini?'))return;try{await api(`/cfo/invoices/${id}`,{method:'DELETE'});await load()}catch(e){setError(e.message)}}
+ const filtered=invoices.filter(i=>i.invoice_no.toLowerCase().includes(query.toLowerCase()));
+ return <div className="page"><div className="page-title"><div><h1>Invoice & Pembayaran</h1><p>Pembayaran tercatat, saldo lama direkonsiliasi, dan CFO menilai G1.</p></div>{canWrite&&<button className="btn primary" onClick={()=>setForm({invoice_no:'',order_fk:'',amount:'',due_date:''})}>Invoice Baru</button>}</div>
+ {error&&!form&&!payment&&!gate&&!reconcile&&<div className="notice danger" role="alert">{error}</div>}<input aria-label="Cari invoice" placeholder="Cari nomor invoice" value={query} onChange={e=>setQuery(e.target.value)}/>
+ {loading?<p>Memuat...</p>:<div className="table-scroll"><table><thead><tr><th>Invoice / Order</th><th>Tagihan</th><th>Terbayar</th><th>Outstanding</th><th>Rekonsiliasi</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{filtered.map(i=><tr key={i.id}><td>{i.invoice_no}<br/>{orders.find(o=>o.id===i.order_fk)?.order_id||'—'}</td><td>{money(i.amount)}</td><td>{money(i.paid_amount)}</td><td>{money(Number(i.amount)-Number(i.paid_amount))}</td><td><span className={'badge '+(i.reconciliation_status==='VERIFIED'?'green':'red')}>{i.reconciliation_status}</span></td><td><span className={'badge '+statusTone(i.status)}>{i.status}</span></td><td>{manager&&<button className="btn" onClick={()=>setForm({...i})}>Edit</button>}{canWrite&&i.reconciliation_status==='VERIFIED'&&Number(i.paid_amount)<Number(i.amount)&&<button className="btn" onClick={()=>setPayment({invoice_no:i.invoice_no,amount:'',payment_date:'',method:'',notes:''})}>Catat Bayar</button>}{manager&&i.reconciliation_status!=='VERIFIED'&&<button className="btn" onClick={()=>setReconcile({id:i.id,opening_paid_amount:i.opening_paid_amount||0,evidence_ref:''})}>Rekonsiliasi</button>}{manager&&Number(i.paid_amount)===0&&<button className="btn" onClick={()=>remove(i.id)}>Hapus</button>}</td></tr>)}{!filtered.length&&<tr><td colSpan={7}>Belum ada invoice.</td></tr>}</tbody></table></div>}
+ {manager&&<section className="panel"><h2>Finance Gate G1</h2><p>Verifikasi terms, pembayaran/DP dan referensi bukti.</p>{orders.map(o=><div className="article" key={o.id}><b>{o.order_id}</b><span>{o.finance_gate_status||'PENDING'}</span><button className="btn" onClick={()=>setGate({order_fk:o.id,action:'APPROVE',reason:'',term_kind:'DP',required_dp_amount:'',evidence_ref:'',credit_due_date:''})}>Review G1</button></div>)}</section>}
+ <section className="panel"><h2>Riwayat Pembayaran</h2><div className="table-scroll"><table><thead><tr><th>Invoice</th><th>Jumlah</th><th>Tanggal</th><th>Metode</th><th>Referensi Bukti</th></tr></thead><tbody>{payments.filter(p=>p.invoice_no.toLowerCase().includes(query.toLowerCase())).map(p=><tr key={p.id}><td>{p.invoice_no}</td><td>{money(p.amount)}</td><td>{p.payment_date||'—'}</td><td>{p.method||'—'}</td><td>{p.notes||'—'}</td></tr>)}</tbody></table></div></section>
+ {form&&<FormModal title={form.id?'Edit Invoice':'Invoice Baru'} onClose={()=>setForm(null)} onSubmit={save} error={error} busy={busy}>{!form.id&&<><label>Nomor Invoice<input required value={form.invoice_no} onChange={e=>setForm({...form,invoice_no:e.target.value})}/></label><label>Order<select required value={form.order_fk} onChange={e=>setForm({...form,order_fk:e.target.value})}><option value="">Pilih order</option>{orders.map(o=><option key={o.id} value={o.id}>{o.order_id} — {o.buyer}</option>)}</select></label></>}<label>Jumlah Tagihan<input type="number" min="0.01" step="0.01" required value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})}/></label><label>Jatuh Tempo<input type="date" value={form.due_date||''} onChange={e=>setForm({...form,due_date:e.target.value})}/></label></FormModal>}
+ {payment&&<FormModal title={'Pembayaran '+payment.invoice_no} onClose={()=>setPayment(null)} onSubmit={save} error={error} busy={busy}><label>Jumlah<input type="number" min="0.01" step="0.01" required value={payment.amount} onChange={e=>setPayment({...payment,amount:e.target.value})}/></label><label>Tanggal<input type="date" required value={payment.payment_date} onChange={e=>setPayment({...payment,payment_date:e.target.value})}/></label><label>Metode<input required value={payment.method} onChange={e=>setPayment({...payment,method:e.target.value})}/></label><label>Referensi Bukti<textarea required value={payment.notes} onChange={e=>setPayment({...payment,notes:e.target.value})}/></label></FormModal>}
+ {reconcile&&<FormModal title="Rekonsiliasi Saldo Invoice Lama" onClose={()=>setReconcile(null)} onSubmit={save} error={error} busy={busy}><p>Jumlah pembuka hanya disetujui setelah dibandingkan dengan mutasi bank dan payment yang sudah tercatat.</p><label>Saldo Terbayar Sebelum Ledger<input type="number" min="0" step="0.01" required value={reconcile.opening_paid_amount} onChange={e=>setReconcile({...reconcile,opening_paid_amount:e.target.value})}/></label><label>Referensi Bukti Bank / Arsip<textarea required value={reconcile.evidence_ref} onChange={e=>setReconcile({...reconcile,evidence_ref:e.target.value})}/></label></FormModal>}
+ {gate&&<FormModal title="Penilaian Finance Gate G1" onClose={()=>setGate(null)} onSubmit={save} error={error} busy={busy}><label>Keputusan<select value={gate.action} onChange={e=>setGate({...gate,action:e.target.value})}><option value="APPROVE">Setujui</option><option value="REJECT">Hold</option></select></label>{gate.action==='APPROVE'&&<><label>Jenis Terms<select value={gate.term_kind} onChange={e=>setGate({...gate,term_kind:e.target.value})}><option value="DP">DP</option><option value="FULL">Lunas</option><option value="CREDIT">Kredit</option></select></label>{gate.term_kind==='DP'&&<label>DP Wajib (Rp)<input type="number" min="0.01" step="0.01" required value={gate.required_dp_amount} onChange={e=>setGate({...gate,required_dp_amount:e.target.value})}/></label>}{gate.term_kind==='CREDIT'&&<label>Jatuh Tempo Kredit<input type="date" required value={gate.credit_due_date} onChange={e=>setGate({...gate,credit_due_date:e.target.value})}/></label>}<label>Referensi Bukti / Kontrak<textarea required value={gate.evidence_ref} onChange={e=>setGate({...gate,evidence_ref:e.target.value})}/></label></>}<label>Alasan CFO<textarea required value={gate.reason} onChange={e=>setGate({...gate,reason:e.target.value})}/></label></FormModal>}</div>;
 }

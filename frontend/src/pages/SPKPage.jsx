@@ -3,7 +3,7 @@ import {api} from '../api';
 import {Plus,Edit2,Trash2,X,Check,Search,ClipboardList} from 'lucide-react';
 
 const empty={spk_no:'',order_fk:'',status:'NEW',notes:''};
-const statusOpts=['NEW','IN_PROCESS','DONE','CANCELLED'];
+const statusOpts=['NEW','RELEASED','CANCELLED'];
 
 export default function SPKPage(){
   const [list,setList]=useState([]),[orders,setOrders]=useState([]);

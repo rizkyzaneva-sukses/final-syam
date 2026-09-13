@@ -1,6 +1,6 @@
 import React,{useEffect,useState} from 'react';
 import {api} from '../api';
-import {Plus,Edit2,CheckCircle,Trash2,X,Search,ClipboardList} from 'lucide-react';
+import {Plus,Edit2,Check,CheckCircle,Trash2,X,Search,ClipboardList} from 'lucide-react';
 
 const empty={title:'',assigned_to_id:'',order_fk:'',due_date:'',status:'OPEN'};
 const statusOpts=['OPEN','IN_PROGRESS','DONE','CANCELLED'];
@@ -82,7 +82,7 @@ export default function TaskPage(){
       <td><span className={'badge '+(t.status==='OPEN'?'red':t.status==='IN_PROGRESS'?'amber':t.status==='DONE'?'green':'gray')}>{t.status.replace('_',' ')}</span></td>
       <td className="td-action">
         {!isPIC && <button className="icon-btn" onClick={()=>setForm({...t,assigned_to_id:t.assigned_to_id||'',order_fk:t.order_fk||'',due_date:t.due_date||''})} title="Edit"><Edit2 size={15}/></button>}
-        {t.status!=='DONE'&&t.status!=='CANCELLED'&&<button className="icon-btn" onClick={async()=>{await api('/tasks/'+t.id,{method:'PATCH',body:JSON.stringify({status:isPIC?'DONE':'IN_PROGRESS'})});load()}} title={isPIC?'Selesaikan':'Set In Progress'}><CheckCircle size={15} color="#16a34a"/></button>}
+        {t.status!=='DONE'&&t.status!=='CANCELLED'&&<button className="icon-btn" onClick={async()=>{try{await api('/tasks/'+t.id,{method:'PATCH',body:JSON.stringify({status:isPIC?'DONE':'IN_PROGRESS'})});load()}catch(e){setErr(e.message)}}} title={isPIC?'Selesaikan':'Set In Progress'}><CheckCircle size={15} color="#16a34a"/></button>}
       </td>
     </tr>)}
     {f2.length===0&&<tr><td colSpan={6} className="empty">{isPIC?'Tidak ada task untuk anda':'Tidak ada task'}</td></tr>}</tbody></table></div>

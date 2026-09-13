@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator, ConfigDict
 from .models import Role, OrderType
 
 class LoginRequest(BaseModel):
@@ -28,11 +28,29 @@ class ArticleCreate(BaseModel):
     production_route: Optional[str] = None
 
 class OrderCreate(BaseModel):
-    buyer: str
+    model_config = ConfigDict(extra="forbid")
+    buyer: str = Field(min_length=1, max_length=160)
+    customer_id: Optional[int] = None
     order_type: OrderType
     buyer_deadline: Optional[date] = None
     notes: Optional[str] = None
-    articles: List[ArticleCreate]
+    articles: List[ArticleCreate] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_articles(self):
+        self.buyer = self.buyer.strip()
+        if not self.buyer:
+            raise ValueError("Buyer is required")
+        codes = [a.article_code.strip() for a in self.articles]
+        if any(not c for c in codes) or len(set(codes)) != len(codes):
+            raise ValueError("Article codes must be nonempty and unique within the order")
+        for article, code in zip(self.articles, codes):
+            article.article_code = code
+        if self.order_type in (OrderType.SAMPLE_ONLY, OrderType.SAMPLE_PRODUCTION):
+            if not any(a.sample_required for a in self.articles):
+                for article in self.articles:
+                    article.sample_required = True
+        return self
 
 class ArticleOut(BaseModel):
     id: int
@@ -55,6 +73,13 @@ class OrderOut(BaseModel):
     order_date: date
     buyer_deadline: Optional[date]
     finance_status: str
+    customer_id: Optional[int] = None
+    finance_gate_status: str = "PENDING"
+    finance_gate_notes: Optional[str] = None
+    finance_term_kind: Optional[str] = None
+    required_dp_amount: Optional[float] = None
+    payment_evidence_ref: Optional[str] = None
+    credit_due_date: Optional[date] = None
     material_status: str
     shipment_status: str
     customer_close_status: str

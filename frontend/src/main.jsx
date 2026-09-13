@@ -1,6 +1,6 @@
 import React from 'react';
 import {createRoot} from 'react-dom/client';
-import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
+import {BrowserRouter, Routes, Route, Navigate, useOutletContext} from 'react-router-dom';
 import Login from './pages/Login';
 import MasterControl from './pages/MasterControl';
 import OrderDetail from './pages/OrderDetail';
@@ -33,52 +33,58 @@ import TrainingPage from './pages/TrainingPage';
 import PerformancePage from './pages/PerformancePage';
 import EmployeeIssuePage from './pages/EmployeeIssuePage';
 import AuditLogPage from './pages/AuditLogPage';
+import BusinessPolicyPage from './pages/BusinessPolicyPage';
+import BOMCostPage from './pages/BOMCostPage';
+import Access from './components/Access';
 import Layout from './components/Layout';
 import {getToken} from './api';
 import './styles.css';
 
 function Protected({children}){return getToken()?children:<Navigate to="/login" replace/>}
+function HomeRedirect(){const role=useOutletContext()?.me?.role;return role?<Navigate to={['CHRO_MANAGER','HR_SUPPORT'].includes(role)?'/chro':'/master'} replace/>:null}
 function App(){return <BrowserRouter><Routes>
   <Route path="/login" element={<Login/>}/>
   <Route path="/" element={<Protected><Layout/></Protected>}>
-    <Route index element={<Navigate to="/master" replace/>}/>
-    <Route path="master" element={<MasterControl/>}/>
-    <Route path="orders/:orderId" element={<OrderDetail/>}/>
+    <Route index element={<HomeRedirect/>}/>
+    <Route path="master" element={<Access><MasterControl/></Access>}/>
+    <Route path="orders/:orderId" element={<Access><OrderDetail/></Access>}/>
     {/* CMO */}
-    <Route path="cmo" element={<CMOHome/>}/>
-    <Route path="cmo/customers" element={<CustomerList/>}/>
-    <Route path="cmo/orders" element={<OrderList/>}/>
-    <Route path="cmo/orders/new" element={<OrderCreate/>}/>
-    <Route path="cmo/quotations" element={<QuotationPage/>}/>
-    <Route path="cmo/samples" element={<SamplePPMPage/>}/>
-    <Route path="cmo/spk" element={<SPKPage/>}/>
+    <Route path="cmo" element={<Access><CMOHome/></Access>}/>
+    <Route path="cmo/customers" element={<Access><CustomerList/></Access>}/>
+    <Route path="cmo/orders" element={<Access><OrderList/></Access>}/>
+    <Route path="cmo/orders/new" element={<Access><OrderCreate/></Access>}/>
+    <Route path="cmo/quotations" element={<Access><QuotationPage/></Access>}/>
+    <Route path="cmo/samples" element={<Access><SamplePPMPage/></Access>}/>
+    <Route path="cmo/spk" element={<Access><SPKPage/></Access>}/>
     {/* CFO */}
-    <Route path="cfo" element={<CFOHome/>}/>
-    <Route path="cfo/invoices" element={<InvoicePage/>}/>
-    <Route path="cfo/purchase-orders" element={<PurchaseOrderPage/>}/>
-    <Route path="cfo/shipments" element={<ShipmentListPage/>}/>
+    <Route path="cfo" element={<Access><CFOHome/></Access>}/>
+    <Route path="cfo/invoices" element={<Access><InvoicePage/></Access>}/>
+    <Route path="cfo/purchase-orders" element={<Access><PurchaseOrderPage/></Access>}/>
+    <Route path="cfo/shipments" element={<Access><ShipmentListPage/></Access>}/>
     {/* COO */}
-    <Route path="coo" element={<COOHome/>}/>
-    <Route path="coo/material-requests" element={<MaterialRequestPage/>}/>
-    <Route path="coo/production" element={<ProductionQueue/>}/>
-    <Route path="coo/wip" element={<WIPTracking/>}/>
-    <Route path="coo/qc" element={<QCRecordPage/>}/>
-    <Route path="coo/planning" element={<ProductionPlanPage/>}/>
-    <Route path="coo/deliveries" element={<DeliveryPage/>}/>
-    <Route path="coo/closing" element={<OrderClosingPage/>}/>
+    <Route path="coo" element={<Access><COOHome/></Access>}/>
+    <Route path="coo/material-requests" element={<Access><MaterialRequestPage/></Access>}/>
+    <Route path="coo/bom-cost" element={<Access><BOMCostPage/></Access>}/>
+    <Route path="coo/production" element={<Access><ProductionQueue/></Access>}/>
+    <Route path="coo/wip" element={<Access><WIPTracking/></Access>}/>
+    <Route path="coo/qc" element={<Access><QCRecordPage/></Access>}/>
+    <Route path="coo/planning" element={<Access><ProductionPlanPage/></Access>}/>
+    <Route path="coo/deliveries" element={<Access><DeliveryPage/></Access>}/>
+    <Route path="coo/closing" element={<Access><OrderClosingPage/></Access>}/>
     {/* CEO */}
-    <Route path="ceo" element={<CEOHome/>}/>
-    <Route path="ceo/decisions" element={<DecisionPage/>}/>
+    <Route path="ceo" element={<Access><CEOHome/></Access>}/>
+    <Route path="ceo/decisions" element={<Access><DecisionPage/></Access>}/>
+    <Route path="ceo/business-policy" element={<Access><BusinessPolicyPage/></Access>}/>
     {/* CHRO */}
-    <Route path="chro" element={<CHROHome/>}/>
-    <Route path="chro/employees" element={<EmployeePage/>}/>
-    <Route path="chro/training" element={<TrainingPage/>}/>
-    <Route path="chro/performance" element={<PerformancePage/>}/>
-    <Route path="chro/issues" element={<EmployeeIssuePage/>}/>
+    <Route path="chro" element={<Access><CHROHome/></Access>}/>
+    <Route path="chro/employees" element={<Access><EmployeePage/></Access>}/>
+    <Route path="chro/training" element={<Access><TrainingPage/></Access>}/>
+    <Route path="chro/performance" element={<Access><PerformancePage/></Access>}/>
+    <Route path="chro/issues" element={<Access><EmployeeIssuePage/></Access>}/>
     {/* Common */}
-    <Route path="audit-log" element={<AuditLogPage/>}/>
-    <Route path="exceptions" element={<ExceptionPage/>}/>
-    <Route path="tasks" element={<TaskPage/>}/>
+    <Route path="audit-log" element={<Access><AuditLogPage/></Access>}/>
+    <Route path="exceptions" element={<Access><ExceptionPage/></Access>}/>
+    <Route path="tasks" element={<Access><TaskPage/></Access>}/>
   </Route>
 </Routes></BrowserRouter>}
 createRoot(document.getElementById('root')).render(<App/>);

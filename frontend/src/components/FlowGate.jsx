@@ -1,12 +1,13 @@
+import {roleOwnsGate} from '../business';
 import React from 'react';
 import {Check, Lock, ArrowRight, AlertTriangle, Play} from 'lucide-react';
 
-export default function FlowGate({ gates, onAdvance, currentStep }) {
+export default function FlowGate({ gates, onAdvance, currentStep, role, busy }) {
   if (!gates || !gates.length) {
     return (
       <div className="panel" style={{marginTop:16}}>
         <div className="panel-head"><h2>Flow Gate</h2></div>
-        <div className="empty">No flow gate data — advance to begin the flow</div>
+        <div className="empty">Tidak ada langkah lanjutan.</div>
       </div>
     );
   }
@@ -38,8 +39,8 @@ export default function FlowGate({ gates, onAdvance, currentStep }) {
                   <b style={{fontSize:14}}>{g.label}</b>
                   <div style={{fontSize:11,color:'#64748b',marginTop:2}}>Role: <b style={{color:'#3b82f6'}}>{g.role}</b></div>
                 </div>
-                {onAdvance && (
-                  <button className="btn primary sm" onClick={() => onAdvance(g.step)}>
+                {onAdvance && g.canAdvance && roleOwnsGate(role,g.role) && (
+                  <button className="btn primary sm" disabled={busy} onClick={() => onAdvance(g.step)}>
                     <Play size={13}/> Advance
                   </button>
                 )}
@@ -62,8 +63,8 @@ export default function FlowGate({ gates, onAdvance, currentStep }) {
                   <b style={{fontSize:14}}>{g.label}</b>
                   <div style={{fontSize:11,color:'#64748b',marginTop:2}}>Role: <b style={{color:'#059669'}}>{g.role}</b></div>
                 </div>
-                {onAdvance && (
-                  <button className="btn primary sm" onClick={() => onAdvance(g.step)}>
+                {onAdvance && g.canAdvance && roleOwnsGate(role,g.role) && (
+                  <button className="btn primary sm" disabled={busy} onClick={() => onAdvance(g.step)}>
                     <ArrowRight size={13}/> Advance
                   </button>
                 )}

@@ -1,11 +1,13 @@
 import React,{useEffect,useState} from 'react';
-import {useParams} from 'react-router-dom';
+import {useParams,useOutletContext} from 'react-router-dom';
+import {flowGates} from '../business';
 import {api} from '../api';
 import FlowProgress from '../components/FlowProgress';
 import FlowGate from '../components/FlowGate';
 
 export default function OrderDetail(){
   const {orderId}=useParams();
+  const {me}=useOutletContext();
   const [o,setO]=useState(null);
   const [m,setM]=useState([]);
   const [flowData,setFlowData]=useState(null);
@@ -16,7 +18,7 @@ export default function OrderDetail(){
     Promise.all([
       api('/orders/'+orderId),
       api('/master/process-movement/'+orderId),
-      api('/orders/'+orderId+'/flow').catch(()=>null)
+      api('/orders/'+orderId+'/flow')
     ]).then(([order,movement,flow])=>{
       setO(order);
       setM(movement);
@@ -41,10 +43,10 @@ export default function OrderDetail(){
     setAdvancing(false);
   }
 
-  if(!o) return <div className="page">Loading...</div>;
+  if(!o) return <div className="page">{flowErr||'Memuat...'}</div>;
 
-  const gates = flowData?.gates || [];
-  const steps = flowData?.steps || [];
+  const gates = flowGates(flowData);
+  const steps = flowData?.progress?.steps || [];
   const currentStep = flowData?.current_step || o.flow_step || 'ORDER';
   const pct = flowData?.progress?.percent ?? 0;
 
@@ -78,6 +80,8 @@ export default function OrderDetail(){
       {/* ── Flow Gate ── */}
       <FlowGate
         gates={gates}
+        role={me?.role}
+        busy={advancing}
         onAdvance={handleAdvance}
         currentStep={currentStep}
       />

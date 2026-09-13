@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from sqlalchemy.orm import Session
 from ..auth import hash_password
+from ..config import settings
 from ..models import (User, Role, Order, OrderType, Article, ProductionMovement,
     ExceptionItem, CapacitySnapshot, Task, Customer, Employee, Invoice, Quotation,
     SampleRecord, SPK, QCRecord, Shipment, PurchaseOrder, Payment, EmployeeIssue,
@@ -9,6 +10,8 @@ from ..models import (User, Role, Order, OrderType, Article, ProductionMovement,
 DEMO_PASSWORD="demo123"
 
 def seed(db: Session):
+    if settings.app_env != "development" or not settings.seed_demo:
+        raise RuntimeError("Demo seed requires APP_ENV=development and SEED_DEMO=true")
     if db.query(User).count() > 0:
         return
 
@@ -41,10 +44,12 @@ def seed(db: Session):
     a2 = Article(order=o2, article_code="JK-014", garment_type="Jacket", qty=300, sample_required=False, sample_status="NOT_REQUIRED", production_route="Cutting>Sortir>Bordir>Sewing>Accessories>QC>Packing", production_status="WAITING_MATERIAL")
     o3 = Order(order_id="SO-021", buyer="TOKYO STYLE", order_type=OrderType.SAMPLE_ONLY, buyer_deadline=today+timedelta(days=14), finance_status="UNPAID", material_status="NOT_REQUESTED", shipment_status="NOT_READY", overall_status="NEW", flow_step="INVOICE", projected_shipment=today+timedelta(days=12), buffer_days=2, created_by_id=users[1].id)
     a3 = Article(order=o3, article_code="TW-021", garment_type="T-Shirt", qty=500, sample_required=True, sample_status="PROCESS", production_route="Cutting>Sewing>QC>Packing", production_status="SAMPLE_PENDING")
-    o4 = Order(order_id="SO-033", buyer="BERLIN WEAR", order_type=OrderType.REPEAT_PRODUCTION, buyer_deadline=today+timedelta(days=10), finance_status="PAID", material_status="READY", shipment_status="NOT_READY", overall_status="ACTIVE", flow_step="PRODUCTION", projected_shipment=today+timedelta(days=8), buffer_days=2, created_by_id=users[1].id)
+    o4 = Order(order_id="SO-033", buyer="BERLIN WEAR", order_type=OrderType.REPEAT_PRODUCTION, buyer_deadline=today+timedelta(days=10), finance_status="UNPAID", material_status="READY", shipment_status="NOT_READY", overall_status="ACTIVE", flow_step="PRODUCTION", projected_shipment=today+timedelta(days=8), buffer_days=2, created_by_id=users[1].id)
     a4 = Article(order=o4, article_code="BW-ECO-01", garment_type="Polo Shirt", qty=1000, sample_required=False, sample_status="NOT_REQUIRED", production_route="Cutting>Sortir>Sewing>QC>Packing", production_status="IN_PROCESS")
-    o5 = Order(order_id="SO-042", buyer="SEOUL FASHION", order_type=OrderType.SAMPLE_PRODUCTION, buyer_deadline=today+timedelta(days=21), finance_status="PARTIAL", material_status="READY", shipment_status="NOT_READY", overall_status="ACTIVE", flow_step="SAMPLE_APPROVED", projected_shipment=today+timedelta(days=18), buffer_days=3, created_by_id=users[1].id)
+    o5 = Order(order_id="SO-042", buyer="SEOUL FASHION", order_type=OrderType.SAMPLE_PRODUCTION, buyer_deadline=today+timedelta(days=21), finance_status="UNPAID", material_status="WAITING", shipment_status="NOT_READY", overall_status="ACTIVE", flow_step="SAMPLE_APPROVED", projected_shipment=today+timedelta(days=18), buffer_days=3, created_by_id=users[1].id)
     a5 = Article(order=o5, article_code="SF-HOODIE-2", garment_type="Hoodie", qty=150, sample_required=True, sample_status="APPROVED", production_route="Cutting>Printing>Sewing>QC>Packing", production_status="WAITING_MATERIAL")
+    for order, customer in zip([o1,o2,o3,o4,o5], [c1,c2,c3,c4,c5]):
+        order.customer_id = customer.id
     db.add_all([o1,o2,o3,o4,o5]); db.flush()
 
     # --- PRODUCTION MOVEMENTS ---
@@ -152,12 +157,12 @@ def seed(db: Session):
     # --- SHIPMENTS ---
     db.add_all([
         Shipment(order_fk=o1.id, shipment_no="SHP-001", status="PREPARING", finance_gate="PENDING", ceo_approval="NOT_REQUIRED", notes="Belum selesai packing", shipped_date=None, tracking_no=None),
-        Shipment(order_fk=o2.id, shipment_no="SHP-002", status="NOT_READY", finance_gate="BLOCKED", ceo_approval="NOT_REQUIRED", notes="Material delay, shipment blocked", shipped_date=today, tracking_no="TRK-2026-0001"),
+        Shipment(order_fk=o2.id, shipment_no="SHP-002", status="NOT_READY", finance_gate="BLOCKED", ceo_approval="NOT_REQUIRED", notes="Material delay, shipment blocked", shipped_date=None, tracking_no=None),
     ])
 
     # --- PURCHASE ORDERS ---
     db.add_all([
-        PurchaseOrder(po_no="PO-001", order_fk=o2.id, item="Kain Polyester", qty=500, unit="meter", supplier="PT Textile Jaya", amount=25000000, status="ORDERED", arrival_date=today-timedelta(days=2), material_status="RECEIVED"),
+        PurchaseOrder(po_no="PO-001", order_fk=o2.id, item="Kain Polyester", qty=500, unit="meter", supplier="PT Textile Jaya", amount=25000000, status="ORDERED", arrival_date=None, material_status="WAITING"),
         PurchaseOrder(po_no="PO-002", order_fk=o5.id, item="Kain Fleece", qty=200, unit="meter", supplier="PT Kain Nusantara", amount=18000000, status="PENDING", arrival_date=None, material_status="WAITING"),
     ])
 
@@ -173,12 +178,6 @@ def seed(db: Session):
         CEODecision(decision_type="Financial Gate", subject="Approve shipment SO-001", decision="Approved", reason="Invoice sudah lunas", owner_name="Lutfi", action_status="APPROVED"),
     ])
 
-    # --- EMPLOYEE ISSUES ---
-    db.add_all([
-        EmployeeIssue(employee_id=employees[5].id, issue_type="Attendance", description="Terlambat 3x bulan ini", severity="YELLOW", status="OPEN", reported_by="Yuni"),
-        EmployeeIssue(employee_id=employees[3].id, issue_type="Quality", description="Reject rate Printing tinggi", severity="RED", status="IN_PROGRESS", reported_by="Yuni"),
-    ])
-
     # --- PRODUCTION PLANS ---
     db.add_all([
         ProductionPlan(order_fk=o1.id, plan_date=today, status="PLANNING",
@@ -188,13 +187,17 @@ def seed(db: Session):
     ])
 
     # --- DELIVERY CONFIRMATIONS ---
+    db.flush()
+    for payment in db.query(Payment).all():
+        invoice = db.query(Invoice).filter_by(invoice_no=payment.invoice_no).one()
+        payment.invoice_id = invoice.id
     shp1 = db.query(Shipment).filter_by(shipment_no="SHP-001").first()
     shp2 = db.query(Shipment).filter_by(shipment_no="SHP-002").first()
     db.add_all([
         DeliveryConfirmation(shipment_fk=shp1.id, confirmed_by_customer="John Smith (FRAMSTER)",
             confirmation_date=None, feedback="Menunggu pengiriman", status="PENDING"),
         DeliveryConfirmation(shipment_fk=shp2.id, confirmed_by_customer="Carlos Garcia (MADRID CO)",
-            confirmation_date=today, feedback="Pengiriman sudah diterima, barang OK", status="CONFIRMED"),
+            confirmation_date=None, feedback="Menunggu pengiriman", status="PENDING"),
     ])
 
     # --- ORDER CLOSINGS ---
@@ -202,9 +205,9 @@ def seed(db: Session):
         OrderClosing(order_fk=o1.id, customer_close_status="OPEN",
             financial_close_status="OPEN", order_close_status="OPEN",
             closed_by=None, notes="Order masih dalam produksi"),
-        OrderClosing(order_fk=o2.id, customer_close_status="PARTIAL",
-            financial_close_status="PARTIAL", order_close_status="PARTIAL",
-            closed_by="Lutfi", close_date=today, notes="Sebagian closed, tunggu material"),
+        OrderClosing(order_fk=o2.id, customer_close_status="OPEN",
+            financial_close_status="OPEN", order_close_status="OPEN",
+            closed_by=None, close_date=None, notes="Sebagian closed, tunggu material"),
     ])
 
     # --- ADD arrival_date & material_status to existing POs ---

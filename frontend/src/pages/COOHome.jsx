@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {api} from '../api';
 import {Factory,Package,Truck,ClipboardList,CheckSquare} from 'lucide-react';
+import KPIOverview from '../components/KPIOverview';
 
 export default function COOHome(){
   const [data,setData]=useState(null),[err,setErr]=useState('');
@@ -12,6 +13,7 @@ export default function COOHome(){
   return <div className="page">
     <div className="page-title"><div><h1>COO — Operations</h1><p>Dashboard utama divisi Operations</p></div></div>
     <div className="cards">{data.cards.map((c,i)=>{const I=icons[i]||Factory;return <div className="stat blue" key={i}><div className="stat-icon"><I size={22}/></div><strong>{c.value}</strong><span>{c.label}</span></div>})}</div>
+    <KPIOverview kpis={data.kpis}/>
     <div className="grid2">
       <section className="panel">
         <div className="panel-head"><h2>Akses Cepat</h2></div>

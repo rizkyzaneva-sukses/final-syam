@@ -1,4 +1,5 @@
 import React,{useEffect,useState} from 'react';
+import {orderWip} from '../business';
 import {api} from '../api';
 import {Package,RefreshCw,AlertTriangle,Search} from 'lucide-react';
 
@@ -23,51 +24,7 @@ export default function WIPTracking(){
   const totalWIP=wip.reduce((sum,w)=>sum+(w.wip||0),0);
 
   // Per-order WIP breakdown
-  function getOrderWIP(){
-    const orderMap={};
-    orders.forEach(o=>{
-      orderMap[o.id]={order_id:o.order_id,buyer:o.buyer,articles:o.articles||[]};
-    });
-
-    const orderWIP=[];
-    movements.forEach(m=>{
-      const article=(orderMap[m.order_fk]||{}).articles||[];
-      // Find order for this movement through articles
-      let orderInfo=null;
-      for(const oid in orderMap){
-        const ord=orderMap[oid];
-        if(ord.articles.find(a=>a.id===m.article_id)){
-          orderInfo={order_id:ord.order_id,buyer:ord.buyer,order_id_fk:parseInt(oid)};
-          break;
-        }
-      }
-      if(!orderInfo){
-        // Try direct order_fk
-        const ord=orderMap[m.order_fk];
-        if(ord) orderInfo={order_id:ord.order_id,buyer:ord.buyer,order_id_fk:m.order_fk};
-      }
-      if(!orderInfo) return;
-
-      const existing=orderWIP.find(o=>o.order_id===orderInfo.order_id);
-      const wipQty=m.qty_in-m.qty_done-m.qty_reject;
-      if(existing){
-        if(!existing.processes.find(p=>p.process===m.process)){
-          existing.processes.push({process:m.process,wip:wipQty,status:m.status});
-        }
-        existing.totalWIP+=wipQty;
-      }else{
-        orderWIP.push({
-          order_id:orderInfo.order_id,
-          buyer:orderInfo.buyer,
-          totalWIP:wipQty,
-          processes:[{process:m.process,wip:wipQty,status:m.status}]
-        });
-      }
-    });
-    return orderWIP;
-  }
-
-  const orderWIPData=getOrderWIP();
+  const orderWIPData=orderWip(orders,movements);
 
   function filteredProcess(){
     if(!q) return wip;
@@ -96,7 +53,7 @@ export default function WIPTracking(){
     {/* Utilization alert */}
     {wip.some(w=>{
       const c=capMap[w.process]||{};
-      return c.capacity&&(c.planned_load/c.capacity)>1;
+      return c.utilization>100;
     })&&<div className="notice danger" style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'1rem'}}><AlertTriangle size={16}/> Beberapa proses melebihi 100% kapasitas!</div>}
 
     {/* View mode toggle + search */}
@@ -112,7 +69,7 @@ export default function WIPTracking(){
     {viewMode==='process'&&<div className="table-scroll"><table><thead><tr><th>Proses</th><th>Qty In (total)</th><th>Qty Done</th><th>Reject</th><th>WIP (current)</th><th>Capacity</th><th>Planned Load</th><th>Utilization</th></tr></thead>
     <tbody>{filteredProcess().map((w,i)=>{
       const c=capMap[w.process]||{};
-      const util=c.capacity?Math.round((c.planned_load/c.capacity)*100):'-';
+      const util=c.utilization??'-';
       const isOver=typeof util==='number'&&util>100;
       return <tr key={i} style={isOver?{backgroundColor:'#fef2f2'}:{}}>
         <td><b>{w.process}</b></td><td>{w.qty_in}</td><td>{w.qty_done}</td><td>{w.qty_reject}</td>
