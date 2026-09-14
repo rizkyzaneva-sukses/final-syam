@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {Outlet,NavLink,useNavigate} from 'react-router-dom';
 import {Home,Database,Package,ShoppingCart,DollarSign,Factory,Users,Crown,ClipboardList,AlertTriangle,LogOut,Menu,X,FileText,BarChart3,BookOpen,Truck,CheckSquare,MessageSquarePlus} from 'lucide-react';
 import {api,clearToken} from '../api';
+import {canAccess} from '../business';
 import GlobalSearch from './GlobalSearch';
 
 const roleMenus={
@@ -25,7 +26,7 @@ for(const role of ['CEO','CFO_MANAGER','COO_MANAGER','PRODUCTION_PIC']) roleMenu
 export default function Layout(){
  const [me,setMe]=useState(null),[open,setOpen]=useState(false); const nav=useNavigate();
  useEffect(()=>{api('/auth/me').then(setMe)},[]);
- const menus=roleMenus[me?.role]||[['Master Control','/master',Database]];
+ const menus=(roleMenus[me?.role]||[['Master Control','/master',Database]]).filter(([,path])=>!me?.role||canAccess(me.role,path));
  async function logout(){try{await api('/auth/logout',{method:'POST'})}catch{}finally{clearToken();nav('/login')}}
  return <div className="app-shell">
    <aside className={'sidebar '+(open?'open':'')}>
