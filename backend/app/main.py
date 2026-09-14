@@ -38,9 +38,13 @@ async def lifespan(app):
     yield
 
 
+_is_prod = settings.app_env == "production"
 app = FastAPI(title=settings.app_name, version="0.2.0", lifespan=lifespan,
-              docs_url=None if settings.app_env == "production" else "/docs",
-              redoc_url=None if settings.app_env == "production" else "/redoc")
+              docs_url=None if _is_prod else "/docs",
+              redoc_url=None if _is_prod else "/redoc",
+              # docs_url=None only hides the UI; the schema route stays mounted and
+              # would still publish every endpoint. Disable it explicitly in prod.
+              openapi_url=None if _is_prod else "/openapi.json")
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=False,
                    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
                    allow_headers=["Authorization", "Content-Type"])
