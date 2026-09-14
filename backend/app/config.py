@@ -1,4 +1,5 @@
 import secrets
+from pathlib import Path
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -8,12 +9,14 @@ class Settings(BaseSettings):
     app_env: str = "development"
     secret_key: str = Field(default_factory=lambda: secrets.token_urlsafe(48))
     access_token_minutes: int = Field(default=60, ge=1, le=1440)
-    database_url: str = "postgresql+psycopg2://bos:bos@db:5432/bos_syams"
+    database_url: str = Field(min_length=1, validation_alias="DATABASE_URL")
     seed_demo: bool = False
     cors_origins: list[str] = []
     login_max_attempts: int = Field(default=10, ge=1)
     login_window_seconds: int = Field(default=900, ge=60)
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=Path(__file__).resolve().parents[1] / ".env", extra="ignore"
+    )
 
     @model_validator(mode="after")
     def secure_configuration(self):

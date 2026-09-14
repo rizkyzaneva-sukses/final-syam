@@ -34,6 +34,18 @@ docker compose up --build
 ```
 Buka http://localhost:8080
 
+### Menjalankan backend tanpa Docker Compose
+
+Backend memerlukan `DATABASE_URL` yang mengarah ke PostgreSQL yang dapat dijangkau dari proses backend. Buat `backend/.env` (dibaca dari folder tersebut walaupun perintah dijalankan dari folder lain), misalnya:
+
+```dotenv
+DATABASE_URL=postgresql+psycopg2://bos:local-development-only@127.0.0.1:5432/bos_syams
+```
+
+Contoh ini hanya berlaku jika PostgreSQL berjalan di komputer yang sama dan database/user tersebut sudah dibuat. Untuk database terkelola, gunakan host, kredensial, dan nama database dari penyedia layanan. Nama host `db` hanya tersedia bagi service `app` di jaringan `docker compose` proyek ini. Jika backend dijalankan sebagai container terpisah, `127.0.0.1` menunjuk ke container backend itu sendiri, sehingga gunakan alamat database yang dapat dijangkau dari container tersebut. Atur `DATABASE_URL` di environment deployment; jangan simpan kredensial produksi di repository.
+
+Jika menerima `could not translate host name "db" to address`, periksa apakah backend dijalankan melalui `docker compose up --build` bersama service `db`, atau apakah `DATABASE_URL` pada runtime sudah berisi host database yang benar.
+
 Demo:
 - iyan@syams.local / demo123
 - cecep@syams.local / demo123
