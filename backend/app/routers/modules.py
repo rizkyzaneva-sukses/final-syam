@@ -755,7 +755,9 @@ def delete_task(task_id:int, db:Session=Depends(get_db), user=Depends(require_ro
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ USERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @router.get("/users")
-def list_users(db:Session=Depends(get_db), user=Depends(get_current_user)):
+def list_users(db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CEO,models.Role.CMO_MANAGER,models.Role.COO_MANAGER,models.Role.CMO_SUPPORT,models.Role.CHRO_MANAGER))):
+    # Directory is limited to roles that assign work (task assignee pickers) or
+    # manage staff; other roles only ever see their own tasks and do not need it.
     return [{"id":u.id,"name":u.name,"role":u.role.value} for u in db.query(models.User).filter(models.User.is_active==True).order_by(models.User.name).all()]
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ AUDIT LOG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

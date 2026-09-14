@@ -15,7 +15,10 @@ export default function TaskPage(){
   const isPIC=me && ['SAMPLE_PIC','PRINTING_PIC','PRODUCTION_PIC','SHIPMENT_ADMIN'].includes(me.role);
 
   function load(){
-    Promise.all([api('/tasks'),api('/users'),api('/orders'),api('/auth/me')]).then(([t,u,o,m])=>{
+    // PIC-level roles are not allowed to read the user directory, and HR roles
+    // cannot read orders. Both lists are optional context for the task list, so
+    // a 403 on either must degrade gracefully instead of blanking the page.
+    Promise.all([api('/tasks'),api('/users').catch(()=>[]),api('/orders').catch(()=>[]),api('/auth/me')]).then(([t,u,o,m])=>{
       setList(t); setUsers(u); setOrders(o); setMe(m);
     }).catch(e=>setErr(e.message));
   }

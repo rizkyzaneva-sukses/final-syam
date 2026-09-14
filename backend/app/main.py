@@ -79,10 +79,17 @@ if _frontend_dist.is_dir():
     if _assets.is_dir():
         app.mount("/assets", StaticFiles(directory=str(_assets)), name="assets")
 
+    # Paths the SPA must never shadow: API namespace plus the OpenAPI schema and
+    # docs UIs, which FastAPI disables in production. Without this guard the
+    # catch-all below would answer them with index.html (or leak the schema).
+    _RESERVED = {"openapi.json", "docs", "redoc", "docs/oauth2-redirect"}
+
     @app.get("/{full_path:path}", include_in_schema=False)
     def spa(full_path: str):
+        from fastapi import HTTPException
         if full_path.startswith("api/") or full_path == "api":
-            from fastapi import HTTPException
+            raise HTTPException(status_code=404)
+        if settings.app_env == "production" and full_path in _RESERVED:
             raise HTTPException(status_code=404)
         candidate = (_frontend_dist / full_path).resolve()
         if full_path and candidate.is_file() and _frontend_dist in candidate.parents:

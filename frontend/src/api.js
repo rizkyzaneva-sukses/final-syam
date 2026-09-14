@@ -1,8 +1,15 @@
 import {normalizeDates} from './business.js';
 const API='/api';
-export function getToken(){return localStorage.getItem('bos_token')}
-export function setToken(v){localStorage.setItem('bos_token',v)}
-export function clearToken(){localStorage.removeItem('bos_token')}
+// Access tokens live in sessionStorage, not localStorage: the token dies with the
+// tab instead of persisting on disk for every future visitor of that browser
+// profile, which shrinks the blast radius of an XSS or a shared machine.
+const TOKEN_KEY='bos_token';
+export function getToken(){return sessionStorage.getItem(TOKEN_KEY)}
+export function setToken(v){sessionStorage.setItem(TOKEN_KEY,v)}
+export function clearToken(){sessionStorage.removeItem(TOKEN_KEY);try{localStorage.removeItem(TOKEN_KEY)}catch{}}
+// One-time migration for sessions issued before the switch, so users are not
+// logged out mid-session by the upgrade.
+try{const legacy=localStorage.getItem(TOKEN_KEY);if(legacy&&!sessionStorage.getItem(TOKEN_KEY)){sessionStorage.setItem(TOKEN_KEY,legacy)}if(legacy){localStorage.removeItem(TOKEN_KEY)}}catch{}
 const readonlyKeys=new Set(['id','created_at','updated_at','customer_approved_by_id','version','snapshot','total_score','invoice_id','finance_assessed_by_id','approved_outstanding','closed_by']);
 const patchOnlyFields=[
   ['/ceo/decisions/', ['order_fk']], ['/coo/deliveries/', ['shipment_fk']], ['/chro/issues/', ['employee_id']],
