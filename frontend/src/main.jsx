@@ -36,6 +36,7 @@ import AuditLogPage from './pages/AuditLogPage';
 import BusinessPolicyPage from './pages/BusinessPolicyPage';
 import BOMCostPage from './pages/BOMCostPage';
 import RevisionPage from './pages/RevisionPage';
+import GuidePage from './pages/GuidePage';
 import Access from './components/Access';
 import Layout from './components/Layout';
 import {getToken} from './api';
@@ -48,6 +49,8 @@ function App(){return <BrowserRouter><Routes>
   <Route path="/" element={<Protected><Layout/></Protected>}>
     <Route index element={<HomeRedirect/>}/>
     <Route path="master" element={<Access><MasterControl/></Access>}/>
+    {/* Panduan sengaja tanpa Access: berlaku untuk semua peran */}
+    <Route path="panduan" element={<GuidePage/>}/>
     <Route path="orders/:orderId" element={<Access><OrderDetail/></Access>}/>
     {/* CMO */}
     <Route path="cmo" element={<Access><CMOHome/></Access>}/>

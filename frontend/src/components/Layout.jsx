@@ -34,7 +34,7 @@ export default function Layout(){
     <button className="close-mobile" onClick={()=>setOpen(false)}><X/></button>
     <div className="userbox"><div className="avatar">{me?.name?.[0]||'S'}</div><div><strong>{me?.name||'...'}</strong><small>{me?.role?.replaceAll('_',' ')}</small></div></div>
     <nav>{menus.map(([label,path,Icon],i)=><NavLink key={i} to={path} onClick={()=>setOpen(false)} className={({isActive})=>isActive?'active':''}><Icon size={18}/><span>{label}</span></NavLink>)}</nav>
-    <div className="side-foot"><NavLink to="/revisions" onClick={()=>setOpen(false)}><MessageSquarePlus size={18}/>Usulan Revisi</NavLink><NavLink to="/tasks"><ClipboardList size={18}/>Task</NavLink><NavLink to="/exceptions"><AlertTriangle size={18}/>Exception</NavLink><button onClick={logout}><LogOut size={18}/>Keluar</button></div>
+    <div className="side-foot"><NavLink to="/panduan" onClick={()=>setOpen(false)}><BookOpen size={18}/>Panduan</NavLink><NavLink to="/revisions" onClick={()=>setOpen(false)}><MessageSquarePlus size={18}/>Usulan Revisi</NavLink><NavLink to="/tasks"><ClipboardList size={18}/>Task</NavLink><NavLink to="/exceptions"><AlertTriangle size={18}/>Exception</NavLink><button onClick={logout}><LogOut size={18}/>Keluar</button></div>
    </aside>
    <main className="main"><header className="topbar"><button className="menu-mobile" onClick={()=>setOpen(true)}><Menu/></button><GlobalSearch/><div className="top-user">{me?.name}</div></header><Outlet context={{me}}/></main>
  </div>}
