@@ -9,7 +9,7 @@ from alembic.script import ScriptDirectory
 from .database import Base, engine, SessionLocal
 from .config import settings
 from . import auth_models
-from .routers import auth, orders, master, dashboard, modules
+from .routers import auth, orders, master, dashboard, modules, revisions
 from .services.seed import seed
 
 
@@ -57,7 +57,7 @@ async def security_headers(request, call_next):
     return response
 
 
-for router in (auth.router, orders.router, master.router, dashboard.router, modules.router):
+for router in (auth.router, orders.router, master.router, dashboard.router, modules.router, revisions.router):
     app.include_router(router, prefix="/api")
 
 

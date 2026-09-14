@@ -35,6 +35,7 @@ import EmployeeIssuePage from './pages/EmployeeIssuePage';
 import AuditLogPage from './pages/AuditLogPage';
 import BusinessPolicyPage from './pages/BusinessPolicyPage';
 import BOMCostPage from './pages/BOMCostPage';
+import RevisionPage from './pages/RevisionPage';
 import Access from './components/Access';
 import Layout from './components/Layout';
 import {getToken} from './api';
@@ -85,6 +86,7 @@ function App(){return <BrowserRouter><Routes>
     <Route path="audit-log" element={<Access><AuditLogPage/></Access>}/>
     <Route path="exceptions" element={<Access><ExceptionPage/></Access>}/>
     <Route path="tasks" element={<Access><TaskPage/></Access>}/>
+    <Route path="revisions" element={<Access><RevisionPage/></Access>}/>
   </Route>
 </Routes></BrowserRouter>}
 createRoot(document.getElementById('root')).render(<App/>);

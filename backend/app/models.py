@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime, date
 from sqlalchemy import (Column, Integer, String, Float, Text, Boolean, Date,
-    DateTime, Numeric, Enum, ForeignKey, UniqueConstraint)
+    DateTime, Numeric, Enum, ForeignKey, UniqueConstraint, LargeBinary)
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -125,6 +125,17 @@ class Task(Base):
     order_fk = Column(Integer, ForeignKey("orders.id", ondelete="SET NULL"), nullable=True)
     due_date = Column(Date, nullable=True)
     status = Column(String(32), default="OPEN", nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+class RevisionProposal(Base):
+    __tablename__ = "revision_proposals"
+    id = Column(Integer, primary_key=True)
+    module_name = Column(String(120), nullable=False)
+    bug_description = Column(Text, nullable=False)
+    expected_behavior = Column(Text, nullable=False)
+    image_data = Column(LargeBinary, nullable=True)
+    image_mime = Column(String(40), nullable=True)
+    reported_by_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 class AuditLog(Base):

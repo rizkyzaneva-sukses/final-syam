@@ -20,12 +20,14 @@ export function requestPayload(path, method, value){
   return normalizeDates(clean);
 }
 export async function api(path, opts={}){
-  const headers={...(opts.headers||{}),'Content-Type':'application/json'};
+  const {responseType,...requestOptions}=opts;
+  const headers={...(opts.headers||{})};
+  if(!(opts.body instanceof FormData) && !headers['Content-Type']) headers['Content-Type']='application/json';
   const token=getToken(); if(token) headers.Authorization=`Bearer ${token}`;
   let body=opts.body;if(typeof body==='string'&&headers['Content-Type']==='application/json'){try{body=JSON.stringify(requestPayload(path,opts.method||'GET',JSON.parse(body)))}catch{}}
-  const res=await fetch(API+path,{...opts,body,headers});
+  const res=await fetch(API+path,{...requestOptions,body,headers});
   if(res.status===401){clearToken(); location.href='/login'; throw new Error('Unauthorized')}
   if(!res.ok){let msg='Request gagal'; try{msg=(await res.json()).detail||msg}catch{}; throw new Error(msg)}
   if(res.status===204) return null;
-  return res.json();
+  return responseType==='blob'?res.blob():res.json();
 }
