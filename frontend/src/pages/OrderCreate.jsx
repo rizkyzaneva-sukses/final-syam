@@ -76,7 +76,7 @@ export default function OrderCreate(){
           </div>
           <div className="form-grid3">
             <label className="check-label"><input type="checkbox" checked={a.sample_required} onChange={e=>updArticle(i,'sample_required',e.target.checked)}/> Perlu Sample</label>
-            <label>Rute Produksi<input value={a.production_route} onChange={e=>updArticle(i,'production_route',e.target.value)} placeholder="Cutting → Sewing → QC"/></label>
+            <label>Rute Produksi<input value={a.production_route} onChange={e=>updArticle(i,'production_route',e.target.value)} placeholder="Cutting &gt; Sewing &gt; QC"/></label>
             <label>Size Breakdown<input value={a.size_breakdown} onChange={e=>updArticle(i,'size_breakdown',e.target.value)} placeholder='{"S":50,"M":80,"L":50,"XL":20}'/></label>
           </div>
         </div>)}

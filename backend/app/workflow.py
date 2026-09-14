@@ -172,7 +172,11 @@ def materials_ready(db, order):
 
 
 def route_for(article):
-    return [p.strip().upper() for p in (article.production_route or "").split(">") if p.strip()]
+    # Accept both the ASCII ">" separator and the "→" arrow: the order form
+    # placeholder shows an arrow, so routes typed to match the UI hint would
+    # otherwise collapse into a single bogus process name.
+    raw = (article.production_route or "").replace("\u2192", ">").replace("->", ">")
+    return [p.strip().upper() for p in raw.split(">") if p.strip()]
 
 
 def qc_ready(db, order):
