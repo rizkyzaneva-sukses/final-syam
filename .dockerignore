@@ -1,0 +1,13 @@
+.git
+.github
+node_modules
+frontend/node_modules
+backend/tests
+frontend/tests
+backend/.venv
+deploy
+__pycache__
+*.pyc
+.env
+.env.*
+!.env.example

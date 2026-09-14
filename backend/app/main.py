@@ -66,3 +66,25 @@ def health():
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))
     return {"status": "ok"}
+
+
+# --- Serve frontend (single-container build) ---
+# If a built SPA is present at frontend_dist/, serve it with SPA fallback.
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+_frontend_dist = Path(__file__).resolve().parents[1] / "frontend_dist"
+if _frontend_dist.is_dir():
+    _assets = _frontend_dist / "assets"
+    if _assets.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(_assets)), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa(full_path: str):
+        if full_path.startswith("api/") or full_path == "api":
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404)
+        candidate = (_frontend_dist / full_path).resolve()
+        if full_path and candidate.is_file() and _frontend_dist in candidate.parents:
+            return FileResponse(str(candidate))
+        return FileResponse(str(_frontend_dist / "index.html"))
