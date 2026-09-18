@@ -7,7 +7,7 @@ const empty={shipment_fk:'',confirmed_by_customer:'',feedback:'',status:'PENDING
 const statusOpts=['PENDING','CONFIRMED','ISSUE'];
 
 export default function DeliveryPage(){
-  const canWrite=['CMO_MANAGER','CMO_SUPPORT'].includes(useRole());
+  const canWrite=useRole()==='CMO_MANAGER';
   const [list,setList]=useState([]),[shipments,setShipments]=useState([]);
   const [err,setErr]=useState('');
   const [q,setQ]=useState(''),[filterStatus,setFilterStatus]=useState('');
@@ -31,9 +31,9 @@ export default function DeliveryPage(){
     try{
       const payload={...form,shipment_fk:form.shipment_fk?parseInt(form.shipment_fk):null};
       if(form.id){
-        await api('/coo/deliveries/'+form.id,{method:'PATCH',body:JSON.stringify(payload)});
+        await api('/cmo/delivery-confirmations/'+form.id,{method:'PATCH',body:JSON.stringify(payload)});
       }else{
-        await api('/coo/deliveries',{method:'POST',body:JSON.stringify(payload)});
+        await api('/cmo/delivery-confirmations',{method:'POST',body:JSON.stringify(payload)});
       }
       setForm(null); load();
     }catch(x){alert(x.message)}
@@ -49,11 +49,11 @@ export default function DeliveryPage(){
   const issueCount=list.filter(d=>d.status==='ISSUE').length;
 
   return <div className="page">
-    <div className="page-title"><div><h1><Truck size={22}/> Deliveries</h1><p>{totalCount} total delivery</p></div>
-      {canWrite&&<button className="btn primary" onClick={()=>setForm({...empty})}><Plus size={16}/> Tambah Delivery</button>}</div>
+    <div className="page-title"><div><h1><Truck size={22}/> Konfirmasi Penerimaan Customer</h1><p>{totalCount} konfirmasi penerimaan</p></div>
+      {canWrite&&<button className="btn primary" onClick={()=>setForm({...empty})}><Plus size={16}/> Tambah Konfirmasi</button>}</div>
     {err&&<div className="notice danger">{err}</div>}
     <div className="cards">
-      <div className="stat blue"><strong>{totalCount}</strong><span>Total Delivery</span></div>
+      <div className="stat blue"><strong>{totalCount}</strong><span>Total Konfirmasi</span></div>
       <div className="stat amber"><strong>{pendingCount}</strong><span>PENDING</span></div>
       <div className="stat green"><strong>{confirmedCount}</strong><span>CONFIRMED</span></div>
       <div className="stat red"><strong>{issueCount}</strong><span>ISSUE</span></div>
@@ -69,13 +69,13 @@ export default function DeliveryPage(){
       <td className="td-ellipsis">{d.feedback||'-'}</td>
       <td><span className={'badge '+(d.status==='CONFIRMED'?'green':d.status==='ISSUE'?'red':'amber')}>{d.status}</span></td>
       <td className="td-action">
-        {canWrite&&d.status!=='CONFIRMED'&&<button className="icon-btn" onClick={()=>setForm({...d,shipment_fk:d.shipment_fk||'',confirmed_by_customer:d.confirmed_by_customer||'',feedback:d.feedback||''})} title="Edit"><Edit2 size={15}/></button>}
+        {canWrite&&d.status!=='CONFIRMED'&&<button className="icon-btn" onClick={()=>setForm({...d,shipment_fk:d.shipment_fk||'',confirmed_by_customer:d.confirmed_by_customer||'',feedback:d.feedback||''})} title="Edit konfirmasi"><Edit2 size={15}/></button>}
       </td>
     </tr>)}
-    {f2.length===0&&<tr><td colSpan={5} className="empty">Tidak ada delivery</td></tr>}</tbody></table></div>
+    {f2.length===0&&<tr><td colSpan={5} className="empty">Belum ada konfirmasi penerimaan</td></tr>}</tbody></table></div>
     {form&&<div className="modal-bg" onClick={()=>setForm(null)}>
     <div className="modal" onClick={e=>e.stopPropagation()}>
-      <div className="modal-head"><h2>{form.id?'Edit':'Tambah'} Delivery</h2><button className="icon-btn" onClick={()=>setForm(null)}><X size={18}/></button></div>
+      <div className="modal-head"><h2>{form.id?'Edit':'Tambah'} Konfirmasi Customer</h2><button className="icon-btn" onClick={()=>setForm(null)}><X size={18}/></button></div>
       <form onSubmit={save}>
         <div className="form-grid">
           <label>Shipment *<select required value={form.shipment_fk} onChange={e=>setForm({...form,shipment_fk:e.target.value})}>

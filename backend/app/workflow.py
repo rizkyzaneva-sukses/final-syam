@@ -487,7 +487,7 @@ def validate(db, obj, user, deleting=False):
         if obj.status == "DELIVERED" and not db.info.get("delivery_confirmation"):
             fail("Delivered status is controlled by customer confirmation")
     elif isinstance(obj, m.DeliveryConfirmation):
-        require(user, "CMO_MANAGER", "CMO_SUPPORT")
+        require(user, "CMO_MANAGER")
         shipment = get(db, m.Shipment, obj.shipment_fk)
         if shipment.status not in ("SHIPPED", "DELIVERED"):
             fail("Delivery can only be recorded after shipment")

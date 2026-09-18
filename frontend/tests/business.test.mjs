@@ -7,6 +7,8 @@ test('route roles do not grant CEO an operational CMO page by implication', () =
   assert.equal(canAccess('CEO', '/cmo/orders'), false);
   assert.equal(canAccess('CEO', '/cfo/shipments'), true);
   assert.equal(canAccess('CMO_SUPPORT', '/cfo/invoices'), false);
+  assert.equal(canAccess('CMO_SUPPORT', '/coo/deliveries'), false);
+  assert.equal(canAccess('CMO_MANAGER', '/coo/deliveries'), true);
 });
 
 test('blank optional dates are sent as null', () => {

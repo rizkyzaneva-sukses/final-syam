@@ -12,7 +12,7 @@ export function clearToken(){sessionStorage.removeItem(TOKEN_KEY);try{localStora
 try{const legacy=localStorage.getItem(TOKEN_KEY);if(legacy&&!sessionStorage.getItem(TOKEN_KEY)){sessionStorage.setItem(TOKEN_KEY,legacy)}if(legacy){localStorage.removeItem(TOKEN_KEY)}}catch{}
 const readonlyKeys=new Set(['id','created_at','updated_at','customer_approved_by_id','version','snapshot','total_score','invoice_id','finance_assessed_by_id','approved_outstanding','closed_by']);
 const patchOnlyFields=[
-  ['/ceo/decisions/', ['order_fk']], ['/coo/deliveries/', ['shipment_fk']], ['/chro/issues/', ['employee_id']],
+  ['/ceo/decisions/', ['order_fk']], ['/cmo/delivery-confirmations/', ['shipment_fk']], ['/chro/issues/', ['employee_id']],
   ['/exceptions/', ['order_fk']], ['/coo/material-requests/', ['order_fk']], ['/coo/movements/', ['article_id','process']],
   ['/cfo/purchase-orders/', ['po_no','order_fk']], ['/coo/qc-records/', ['order_fk','article_code','process']],
   ['/cmo/quotations/', ['quotation_no','order_fk']], ['/cmo/samples/', ['order_fk','article_code','requested_date']],

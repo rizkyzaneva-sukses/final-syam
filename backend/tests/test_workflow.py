@@ -62,8 +62,13 @@ def test_complete_workflow_separates_finance_ceo_delivery_and_closing(client, he
     assert float(approved["approved_outstanding"]) == 75
     call(client, headers, "PATCH", f"/coo/shipments/{sid}", "SHIPMENT_ADMIN", {"status": "DELIVERED", "shipped_date": str(date.today())}, expected=400)
     call(client, headers, "PATCH", f"/coo/shipments/{sid}", "SHIPMENT_ADMIN", {"status": "SHIPPED", "shipped_date": str(date.today()), "tracking_no": "TR1"})
-    call(client, headers, "POST", "/coo/deliveries", "COO_MANAGER", {"shipment_fk": sid}, expected=403)
-    call(client, headers, "POST", "/coo/deliveries", "CMO_MANAGER", {"shipment_fk": sid, "status": "CONFIRMED", "confirmed_by_customer": "Buyer contact", "confirmation_date": str(date.today())})
+    call(client, headers, "POST", "/coo/deliveries", "CMO_MANAGER", {"shipment_fk": sid}, expected=405)
+    call(client, headers, "POST", "/cmo/delivery-confirmations", "COO_MANAGER", {"shipment_fk": sid}, expected=403)
+    call(client, headers, "POST", "/cmo/delivery-confirmations", "CMO_SUPPORT", {"shipment_fk": sid, "status": "CONFIRMED", "confirmed_by_customer": "Buyer contact", "confirmation_date": str(date.today())}, expected=403)
+    delivery = call(client, headers, "POST", "/cmo/delivery-confirmations", "CMO_MANAGER", {"shipment_fk": sid, "status": "CONFIRMED", "confirmed_by_customer": "Buyer contact", "confirmation_date": str(date.today())})
+    call(client, headers, "PATCH", f"/cmo/delivery-confirmations/{delivery['id']}", "CMO_SUPPORT", {"feedback": "changed"}, expected=403)
+    assert call(client, headers, "GET", "/coo/deliveries", "CMO_SUPPORT")[0]["id"] == delivery["id"]
+    assert call(client, headers, "GET", "/coo/shipments", "CMO_SUPPORT")[0]["status"] == "DELIVERED"
     db.expire_all()
     assert db.get(m.Shipment, sid).status == "DELIVERED"
     call(client, headers, "POST", f"/coo/order-closing/{oid}", "CMO_MANAGER", {"order_fk": oid, "customer_close_status": "CLOSED"})

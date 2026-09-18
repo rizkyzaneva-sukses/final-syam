@@ -13,6 +13,8 @@ export default function OrderDetail(){
   const [flowData,setFlowData]=useState(null);
   const [advancing,setAdvancing]=useState(false);
   const [flowErr,setFlowErr]=useState('');
+  const [deliveryData,setDeliveryData]=useState(null);
+  const [deliveryErr,setDeliveryErr]=useState('');
 
   useEffect(()=>{
     Promise.all([
@@ -25,6 +27,15 @@ export default function OrderDetail(){
       if(flow) setFlowData(flow);
     });
   },[orderId]);
+
+  useEffect(()=>{
+    if(!['CMO_MANAGER','CMO_SUPPORT'].includes(me?.role)) return;
+    setDeliveryData(null);
+    setDeliveryErr('');
+    Promise.all([api('/coo/shipments'),api('/coo/deliveries')])
+      .then(([shipments,confirmations])=>setDeliveryData({shipments,confirmations}))
+      .catch(e=>setDeliveryErr(e.message));
+  },[orderId,me?.role]);
 
   async function handleAdvance(stepKey){
     setAdvancing(true); setFlowErr('');
@@ -49,6 +60,7 @@ export default function OrderDetail(){
   const steps = flowData?.progress?.steps || [];
   const currentStep = flowData?.current_step || o.flow_step || 'ORDER';
   const pct = flowData?.progress?.percent ?? 0;
+  const orderShipments=deliveryData?.shipments.filter(s=>s.order_fk===o.id)||[];
 
   return (
     <div className="page">
@@ -63,6 +75,18 @@ export default function OrderDetail(){
       </div>
 
       {flowErr && <div className="notice danger">{flowErr}</div>}
+
+      {['CMO_MANAGER','CMO_SUPPORT'].includes(me?.role)&&<section className="panel">
+        <h2>Status Pengiriman</h2>
+        {deliveryErr?<div className="notice danger">{deliveryErr}</div>:!deliveryData?<p>Memuat pengiriman...</p>:orderShipments.length?orderShipments.map(s=>{
+          const confirmation=deliveryData.confirmations.find(d=>d.shipment_fk===s.id);
+          return <div className="article" key={s.id}>
+            <b>{s.shipment_no||`Shipment #${s.id}`}</b>
+            <span>Status: {s.status} · Konfirmasi buyer: {confirmation?.status||'BELUM ADA'}</span>
+            <small>Resi: {s.tracking_no||'—'} · Tanggal kirim: {s.shipped_date||'—'} · Tanggal tiba: {s.delivery_date||'—'}</small>
+          </div>;
+        }):<p>Belum ada pengiriman untuk order ini.</p>}
+      </section>}
 
       {/* ── Flow Progress Bar ── */}
       <section className="panel" style={{marginBottom:20}}>

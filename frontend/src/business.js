@@ -5,7 +5,7 @@ const routeRoles={
   '/cmo/quotations':[...groups.cmo,'CFO_MANAGER','CEO'],'/cmo/samples':[...groups.cmo,'SAMPLE_PIC'],'/cmo/spk':groups.cmo,
   '/cfo':[...groups.cfo,'CEO'],'/cfo/invoices':[...groups.cfo,'CEO'],'/cfo/purchase-orders':[...groups.cfo,'CEO'],'/cfo/shipments':[...groups.cfo,'COO_MANAGER','SHIPMENT_ADMIN','CEO'],
   '/coo':groups.coo,'/coo/material-requests':['COO_MANAGER','PRODUCTION_PIC'],'/coo/bom-cost':['CEO','COO_MANAGER','PRODUCTION_PIC','CFO_MANAGER'],'/coo/production':groups.coo,'/coo/wip':groups.coo,
-  '/coo/qc':['COO_MANAGER','PRODUCTION_PIC'],'/coo/planning':['COO_MANAGER'],'/coo/deliveries':[...groups.cmo,...groups.cfo,'COO_MANAGER','SHIPMENT_ADMIN','CEO'],
+  '/coo/qc':['COO_MANAGER','PRODUCTION_PIC'],'/coo/planning':['COO_MANAGER'],'/coo/deliveries':['CMO_MANAGER',...groups.cfo,'COO_MANAGER','SHIPMENT_ADMIN','CEO'],
   '/coo/closing':['CMO_MANAGER','CFO_MANAGER','COO_MANAGER','CEO'], '/chro':groups.hr,'/chro/employees':groups.hr,'/chro/training':groups.hr,
   '/chro/performance':['CHRO_MANAGER'],'/chro/issues':['CHRO_MANAGER'],'/ceo':['CEO'],'/ceo/decisions':['CEO'],'/ceo/business-policy':['CEO'],'/audit-log':['CEO'],
 };

@@ -816,12 +816,12 @@ def list_deliveries(db:Session=Depends(get_db), user=Depends(get_current_user)):
     require(user,"CEO","CMO_MANAGER","CMO_SUPPORT","CFO_MANAGER","COO_MANAGER","SHIPMENT_ADMIN")
     return db.query(models.DeliveryConfirmation).order_by(desc(models.DeliveryConfirmation.id)).all()
 
-@router.post("/coo/deliveries")
-def create_delivery_confirmation(data:DeliveryConfirmIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER,models.Role.CMO_SUPPORT))):
+@router.post("/cmo/delivery-confirmations")
+def create_delivery_confirmation(data:DeliveryConfirmIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER))):
     x=models.DeliveryConfirmation(**data.model_dump()); db.add(x); commit_changes(db, user); db.refresh(x); return x
 
-@router.patch("/coo/deliveries/{del_id}")
-def update_delivery_confirmation(del_id:int, data:DeliveryConfirmUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER,models.Role.CMO_SUPPORT))):
+@router.patch("/cmo/delivery-confirmations/{del_id}")
+def update_delivery_confirmation(del_id:int, data:DeliveryConfirmUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER))):
     return apply_update(get_or_404(db,models.DeliveryConfirmation,del_id,"Delivery not found"), data, db, user, "DeliveryConfirmation")
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ COO: ORDER CLOSING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
