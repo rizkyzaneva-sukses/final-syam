@@ -16,6 +16,8 @@ def test_all_users_can_submit_and_read_with_reporter_attribution(client, headers
     assert first.json()["reported_by_name"] == "HR_SUPPORT"
     assert first.json()["module_name"] == "Training"
     assert first.json()["has_image"] is False
+    assert first.json()["status"] == "REVISI"
+    assert first.json()["owner_role"] == "HR_SUPPORT"
 
     second = client.post("/api/revisions", headers=headers("PRODUCTION_PIC"), data={
         "module_name": "Production Queue", "bug_description": "Gambar hilang",
@@ -46,3 +48,71 @@ def test_revision_requires_login_and_rejects_invalid_inputs(client, headers):
                             files={"image": ("large.png", PNG + b"x" * (5 * 1024 * 1024), "image/png")})
     assert too_large.status_code == 413
     assert client.get("/api/revisions", headers=headers("CEO")).json() == []
+
+
+def test_tagged_owner_and_ceo_can_send_to_check_and_reporter_reviews(client, headers, db):
+    created = client.post("/api/revisions", headers=headers("CMO_SUPPORT"), data={
+        "module_name": "CMO-023 — CMO Support — Delivery",
+        "bug_description": "Masih ada tombol Delivery", "expected_behavior": "Tombol tidak ada",
+        "owner_role": "CMO_SUPPORT",
+    }, files={"image": ("screenshot.png", PNG, "image/png")})
+    assert created.status_code == 201, created.text
+    proposal_id = created.json()["id"]
+    path = f"/api/revisions/{proposal_id}/status"
+    assert created.json()["allowed_next_statuses"] == ["CHECK"]
+
+    forbidden = client.patch(path, headers=headers("CFO_MANAGER"), json={
+        "expected_status": "REVISI", "status": "CHECK", "note": "Sudah diperbaiki"})
+    assert forbidden.status_code == 403
+    missing_note = client.patch(path, headers=headers("CEO"), json={
+        "expected_status": "REVISI", "status": "CHECK", "note": "  "})
+    assert missing_note.status_code == 422
+
+    check = client.patch(path, headers=headers("CEO"), json={
+        "expected_status": "REVISI", "status": "CHECK", "note": "Tombol sudah disembunyikan."})
+    assert check.status_code == 200, check.text
+    assert check.json()["status"] == "CHECK"
+    stale = client.patch(path, headers=headers("CEO"), json={
+        "expected_status": "REVISI", "status": "CHECK", "note": "Duplikat"})
+    assert stale.status_code == 409
+
+    revisit = client.patch(path, headers=headers("CMO_SUPPORT"), json={
+        "expected_status": "CHECK", "status": "TINJAU_ULANG", "note": "Masih muncul lewat URL langsung."})
+    assert revisit.status_code == 200, revisit.text
+    assert revisit.json()["status"] == "TINJAU_ULANG"
+    assert revisit.json()["allowed_next_statuses"] == ["CHECK"]
+
+    checked_again = client.patch(path, headers=headers("CMO_SUPPORT"), json={
+        "expected_status": "TINJAU_ULANG", "status": "CHECK", "note": "Akses URL langsung sudah ditutup."})
+    assert checked_again.status_code == 200
+    solved = client.patch(path, headers=headers("CMO_SUPPORT"), json={
+        "expected_status": "CHECK", "status": "SOLVED", "note": "Sesuai."})
+    assert solved.status_code == 200
+    assert solved.json()["allowed_next_statuses"] == []
+
+    history = client.get(f"/api/revisions/{proposal_id}/history", headers=headers("CEO"))
+    assert history.status_code == 200
+    assert [row["to_status"] for row in history.json()] == ["CHECK", "TINJAU_ULANG", "CHECK", "SOLVED"]
+    image = client.get(f"/api/revisions/{proposal_id}/image", headers=headers("CEO"))
+    assert image.content == PNG
+    from app.models import AuditLog
+    assert db.query(AuditLog).filter_by(entity="RevisionProposal", entity_id=proposal_id, action="STATUS_CHANGE").count() == 4
+
+
+def test_only_reporter_or_ceo_can_review_check_result(client, headers):
+    created = client.post("/api/revisions", headers=headers("CEO"), data={
+        "module_name": "CFO-001", "bug_description": "Bug", "expected_behavior": "Expected",
+        "owner_role": "CFO_MANAGER",
+    })
+    proposal_id = created.json()["id"]
+    path = f"/api/revisions/{proposal_id}/status"
+    checked = client.patch(path, headers=headers("CFO_MANAGER"), json={
+        "expected_status": "REVISI", "status": "CHECK", "note": "Sudah diperbaiki."})
+    assert checked.status_code == 200
+    assert checked.json()["allowed_next_statuses"] == []
+    forbidden = client.patch(path, headers=headers("CMO_SUPPORT"), json={
+        "expected_status": "CHECK", "status": "SOLVED", "note": ""})
+    assert forbidden.status_code == 403
+    solved = client.patch(path, headers=headers("CEO"), json={
+        "expected_status": "CHECK", "status": "SOLVED", "note": "Sesuai."})
+    assert solved.status_code == 200

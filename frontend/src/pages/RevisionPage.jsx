@@ -2,16 +2,21 @@ import React,{useEffect,useState} from 'react';
 import {Camera,ImagePlus,MessageSquarePlus,Search,X} from 'lucide-react';
 import {api} from '../api';
 
-const emptyForm={module_name:'',bug_description:'',expected_behavior:''};
+const emptyForm={module_name:'',bug_description:'',expected_behavior:'',owner_role:''};
 const maxImageBytes=5*1024*1024;
 const allowedTypes=new Set(['image/png','image/jpeg','image/webp']);
+const statusLabels={REVISI:'Revisi',CHECK:'Check',TINJAU_ULANG:'Tinjau Ulang',SOLVED:'Solved'};
+const ownerLabels={CEO:'CEO',CMO_MANAGER:'CMO Manager',CMO_SUPPORT:'CMO Support',CFO_MANAGER:'CFO Manager',FINANCE_SUPPORT:'Finance Support',COO_MANAGER:'COO Manager',SAMPLE_PIC:'Sample PIC',PRINTING_PIC:'Printing PIC',PRODUCTION_PIC:'Production PIC',CHRO_MANAGER:'CHRO Manager',HR_SUPPORT:'HR Support',SHIPMENT_ADMIN:'Shipment Admin'};
+const statusFilters=['SEMUA','REVISI','CHECK','TINJAU_ULANG','SOLVED'];
 
 function formatDate(value){return new Intl.DateTimeFormat('id-ID',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value));}
 
 export default function RevisionPage(){
   const [form,setForm]=useState(emptyForm),[image,setImage]=useState(null),[preview,setPreview]=useState('');
   const [items,setItems]=useState([]),[hasMore,setHasMore]=useState(false),[loading,setLoading]=useState(true);
-  const [query,setQuery]=useState(''),[detail,setDetail]=useState(null),[detailImage,setDetailImage]=useState('');
+  const [query,setQuery]=useState(''),[statusFilter,setStatusFilter]=useState('SEMUA');
+  const [detail,setDetail]=useState(null),[detailImage,setDetailImage]=useState('');
+  const [history,setHistory]=useState([]),[statusNote,setStatusNote]=useState(''),[actionError,setActionError]=useState(''),[updatingStatus,setUpdatingStatus]=useState(false);
   const [error,setError]=useState(''),[success,setSuccess]=useState(''),[saving,setSaving]=useState(false);
 
   useEffect(()=>{
@@ -36,6 +41,13 @@ export default function RevisionPage(){
     }).catch(e=>{if(active)setError(e.message)});
     return ()=>{active=false;if(url)URL.revokeObjectURL(url);setDetailImage('')};
   },[detail]);
+
+  useEffect(()=>{
+    if(!detail){setHistory([]);return;}
+    let active=true;
+    api(`/revisions/${detail.id}/history`).then(rows=>{if(active)setHistory(rows)}).catch(e=>{if(active)setActionError(e.message)});
+    return ()=>{active=false};
+  },[detail?.id]);
 
   function chooseImage(file){
     if(!file)return;
@@ -71,7 +83,25 @@ export default function RevisionPage(){
     finally{setLoading(false)}
   }
 
-  const visible=items.filter(item=>[item.module_name,item.bug_description,item.expected_behavior,item.reported_by_name]
+  function openDetail(item){setDetail(item);setHistory([]);setStatusNote('');setActionError('');}
+
+  async function changeStatus(next){
+    setActionError('');
+    if(['CHECK','TINJAU_ULANG'].includes(next)&&!statusNote.trim()){
+      setActionError(next==='CHECK'?'Tuliskan perbaikan yang perlu diperiksa tim.':'Tuliskan hal yang masih perlu diperbaiki.');return;
+    }
+    setUpdatingStatus(true);
+    try{
+      const updated=await api(`/revisions/${detail.id}/status`,{method:'PATCH',body:JSON.stringify({expected_status:detail.status,status:next,note:statusNote.trim()})});
+      setItems(current=>current.map(item=>item.id===updated.id?updated:item));
+      setDetail(updated);setStatusNote('');
+      try{setHistory(await api(`/revisions/${updated.id}/history`));}
+      catch(e){setActionError(`Status tersimpan, tetapi riwayat gagal dimuat: ${e.message}`)}
+    }catch(e){setActionError(e.message)}
+    finally{setUpdatingStatus(false)}
+  }
+
+  const visible=items.filter(item=>(statusFilter==='SEMUA'||item.status===statusFilter)&&[item.module_name,item.bug_description,item.expected_behavior,item.reported_by_name,item.owner_role||'']
     .some(value=>value.toLowerCase().includes(query.trim().toLowerCase())));
 
   return <div className="page revision-page">
@@ -85,6 +115,12 @@ export default function RevisionPage(){
         <form onSubmit={save} onPaste={handlePaste}>
           <label><span>Modul yang error <span className="revision-required">*</span></span>
             <input required maxLength={120} value={form.module_name} onChange={e=>setForm({...form,module_name:e.target.value})} placeholder="Contoh: Order Management, QC Records"/>
+          </label>
+          <label><span>Bagian owner <span className="revision-required">*</span></span>
+            <select required value={form.owner_role} onChange={e=>setForm({...form,owner_role:e.target.value})}>
+              <option value="" disabled>Pilih bagian yang menangani</option>
+              {Object.entries(ownerLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+            </select>
           </label>
           <label><span>Bug <span className="revision-required">*</span></span>
             <textarea required maxLength={5000} rows={4} value={form.bug_description} onChange={e=>setForm({...form,bug_description:e.target.value})} placeholder="Apa yang terjadi saat modul digunakan?"/>
@@ -104,15 +140,18 @@ export default function RevisionPage(){
 
       <section className="revision-feed" aria-labelledby="revision-feed-title">
         <div className="revision-feed-head"><div><h2 id="revision-feed-title">Usulan dari semua user</h2><p>{items.length} usulan terbaru</p></div></div>
+        <div className="revision-status-filters" aria-label="Filter status revisi">
+          {statusFilters.map(status=><button type="button" key={status} className={statusFilter===status?'active':''} aria-pressed={statusFilter===status} onClick={()=>setStatusFilter(status)}>{status==='SEMUA'?'Semua':statusLabels[status]}</button>)}
+        </div>
         <div className="search-bar"><Search size={16}/><input aria-label="Cari usulan revisi" placeholder="Cari modul, bug, atau pelapor..." value={query} onChange={e=>setQuery(e.target.value)}/></div>
         {visible.map(item=><article key={item.id} className="revision-card">
-          <div className="revision-card-top"><span className="revision-module">{item.module_name}</span>{item.has_image&&<span className="revision-image-badge"><Camera size={14}/> Gambar</span>}</div>
-          <div className="revision-card-meta">{item.reported_by_name} · {formatDate(item.created_at)}</div>
+          <div className="revision-card-top"><span className="revision-module">{item.module_name}</span><div className="revision-card-badges"><span className={`revision-status revision-status-${item.status?.toLowerCase()}`}>{statusLabels[item.status]||item.status}</span>{item.has_image&&<span className="revision-image-badge"><Camera size={14}/> Gambar</span>}</div></div>
+          <div className="revision-card-meta">{item.reported_by_name} · {formatDate(item.created_at)} · Owner: {ownerLabels[item.owner_role]||item.owner_role||'Belum ditentukan'}</div>
           <div className="revision-card-copy"><b>Bug</b><p>{item.bug_description}</p></div>
           <div className="revision-card-copy"><b>Harusnya</b><p>{item.expected_behavior}</p></div>
-          <button className="revision-detail-link" type="button" onClick={()=>setDetail(item)}>Lihat detail</button>
+          <button className="revision-detail-link" type="button" onClick={()=>openDetail(item)}>Lihat detail</button>
         </article>)}
-        {!loading&&visible.length===0&&<div className="panel revision-empty">{query?'Tidak ada usulan yang cocok.':'Belum ada usulan revisi. Jadilah yang pertama mengirim.'}</div>}
+        {!loading&&visible.length===0&&<div className="panel revision-empty">{query||statusFilter!=='SEMUA'?'Tidak ada usulan yang cocok.':'Belum ada usulan revisi. Jadilah yang pertama mengirim.'}</div>}
         {loading&&<div className="revision-loading">Memuat usulan...</div>}
         {hasMore&&!loading&&<button type="button" className="btn revision-load-more" onClick={loadMore}>Muat lebih banyak</button>}
       </section>
@@ -120,7 +159,19 @@ export default function RevisionPage(){
 
     {detail&&<div className="modal-bg" onClick={()=>setDetail(null)}><div className="modal revision-modal" role="dialog" aria-modal="true" aria-labelledby="revision-detail-title" onClick={e=>e.stopPropagation()}>
       <div className="modal-head"><h2 id="revision-detail-title">{detail.module_name}</h2><button className="icon-btn" type="button" aria-label="Tutup detail" onClick={()=>setDetail(null)}><X size={18}/></button></div>
-      <div className="revision-modal-body"><p className="revision-card-meta">Dikirim oleh {detail.reported_by_name} · {formatDate(detail.created_at)}</p><h3>Bug</h3><p>{detail.bug_description}</p><h3>Harusnya seperti apa</h3><p>{detail.expected_behavior}</p>{detail.has_image&&<><h3>Gambar pendukung</h3>{detailImage?<img className="revision-detail-image" src={detailImage} alt={`Gambar pendukung untuk ${detail.module_name}`}/>:<p>Memuat gambar...</p>}</>}</div>
+      <div className="revision-modal-body"><p className="revision-card-meta">Dikirim oleh {detail.reported_by_name} · {formatDate(detail.created_at)} · Owner: {ownerLabels[detail.owner_role]||detail.owner_role||'Belum ditentukan'}</p>
+        <span className={`revision-status revision-status-${detail.status?.toLowerCase()}`}>{statusLabels[detail.status]||detail.status}</span>
+        <h3>Bug</h3><p>{detail.bug_description}</p><h3>Harusnya seperti apa</h3><p>{detail.expected_behavior}</p>{detail.has_image&&<><h3>Gambar pendukung</h3>{detailImage?<img className="revision-detail-image" src={detailImage} alt={`Gambar pendukung untuk ${detail.module_name}`}/>:<p>Memuat gambar...</p>}</>}
+        <h3>Riwayat status</h3>
+        <div className="revision-history"><div><b>Revisi</b><small>Usulan dibuat · {formatDate(detail.created_at)}</small></div>{history.map((event,index)=><div key={index}><b>{statusLabels[event.to_status]}</b><small>{event.changed_by_name} · {formatDate(event.created_at)}</small>{event.note&&<p>{event.note}</p>}</div>)}</div>
+        {detail.allowed_next_statuses?.length>0&&<div className="revision-status-action">
+          <h3>{detail.status==='CHECK'?'Hasil pengecekan tim':'Hasil perbaikan'}</h3>
+          <textarea aria-label="Catatan perubahan status" maxLength={2000} rows={3} value={statusNote} onChange={e=>setStatusNote(e.target.value)} placeholder={detail.status==='CHECK'?'Jika perlu ditinjau ulang, tuliskan apa yang belum sesuai.':'Tuliskan yang diperbaiki dan apa yang perlu dicek tim.'}/>
+          {actionError&&<div className="notice danger" role="alert">{actionError}</div>}
+          <div className="revision-status-buttons">{detail.allowed_next_statuses.map(next=><button type="button" key={next} className={`btn ${next==='SOLVED'?'primary':''}`} disabled={updatingStatus} onClick={()=>changeStatus(next)}>{updatingStatus?'Menyimpan...':next==='CHECK'?'Kirim ke Check':next==='SOLVED'?'Tandai Solved':'Tinjau Ulang'}</button>)}</div>
+        </div>}
+        {!detail.allowed_next_statuses?.length&&actionError&&<div className="notice danger" role="alert">{actionError}</div>}
+      </div>
     </div></div>}
   </div>;
 }

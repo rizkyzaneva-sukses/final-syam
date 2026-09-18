@@ -137,6 +137,21 @@ class RevisionProposal(Base):
     image_mime = Column(String(40), nullable=True)
     reported_by_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    owner_role = Column(String(40), nullable=True)
+    status = Column(String(24), default="REVISI", nullable=False)
+    status_note = Column(Text, nullable=True)
+    status_updated_at = Column(DateTime, nullable=True)
+    status_updated_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+class RevisionStatusEvent(Base):
+    __tablename__ = "revision_status_events"
+    id = Column(Integer, primary_key=True)
+    proposal_id = Column(Integer, ForeignKey("revision_proposals.id"), nullable=False, index=True)
+    from_status = Column(String(24), nullable=False)
+    to_status = Column(String(24), nullable=False)
+    note = Column(Text, nullable=True)
+    changed_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"

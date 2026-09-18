@@ -1,14 +1,22 @@
-"""User-submitted revision proposals with optional screenshots."""
+"""User-submitted revision proposals and their review history."""
+from datetime import datetime
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
+from pydantic import BaseModel
 from sqlalchemy.orm import Session, defer
 
 from ..auth import get_current_user
 from ..audit import log_audit
 from ..database import get_db
-from ..models import RevisionProposal, User
+from ..models import RevisionProposal, RevisionStatusEvent, Role, User
 
 router = APIRouter(prefix="/revisions", tags=["revisions"])
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
+
+class StatusChange(BaseModel):
+    expected_status: str
+    status: str
+    note: str = ""
 
 
 def image_mime(data: bytes) -> str | None:
@@ -21,7 +29,15 @@ def image_mime(data: bytes) -> str | None:
     return None
 
 
-def proposal_out(proposal: RevisionProposal, reporter_name: str) -> dict:
+def allowed_next(proposal: RevisionProposal, user: User) -> list[str]:
+    if proposal.status in {"REVISI", "TINJAU_ULANG"}:
+        return ["CHECK"] if user.role == Role.CEO or user.role.value == proposal.owner_role else []
+    if proposal.status == "CHECK" and (user.id == proposal.reported_by_id or user.role == Role.CEO):
+        return ["SOLVED", "TINJAU_ULANG"]
+    return []
+
+
+def proposal_out(proposal: RevisionProposal, reporter_name: str, user: User) -> dict:
     return {
         "id": proposal.id,
         "module_name": proposal.module_name,
@@ -31,6 +47,12 @@ def proposal_out(proposal: RevisionProposal, reporter_name: str) -> dict:
         "reported_by_id": proposal.reported_by_id,
         "reported_by_name": reporter_name,
         "created_at": proposal.created_at.isoformat() + "Z",
+        "owner_role": proposal.owner_role,
+        "status": proposal.status,
+        "status_note": proposal.status_note,
+        "status_updated_at": proposal.status_updated_at.isoformat() + "Z" if proposal.status_updated_at else None,
+        "status_updated_by_id": proposal.status_updated_by_id,
+        "allowed_next_statuses": allowed_next(proposal, user),
     }
 
 
@@ -41,12 +63,13 @@ def list_revisions(limit: int = Query(100, ge=1, le=200), offset: int = Query(0,
             .options(defer(RevisionProposal.image_data))
             .join(User, User.id == RevisionProposal.reported_by_id)
             .order_by(RevisionProposal.id.desc()).offset(offset).limit(limit).all())
-    return [proposal_out(proposal, name) for proposal, name in rows]
+    return [proposal_out(proposal, name, user) for proposal, name in rows]
 
 
 @router.post("", status_code=201)
 async def create_revision(module_name: str = Form(...), bug_description: str = Form(...),
-                          expected_behavior: str = Form(...), image: UploadFile | None = File(None),
+                          expected_behavior: str = Form(...), owner_role: str | None = Form(None),
+                          image: UploadFile | None = File(None),
                           db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     module_name = module_name.strip()
     bug_description = bug_description.strip()
@@ -57,6 +80,9 @@ async def create_revision(module_name: str = Form(...), bug_description: str = F
         raise HTTPException(422, "Bug wajib diisi (maksimal 5000 karakter).")
     if not expected_behavior or len(expected_behavior) > 5000:
         raise HTTPException(422, "Perilaku yang diharapkan wajib diisi (maksimal 5000 karakter).")
+    owner_role = owner_role or user.role.value
+    if owner_role not in {role.value for role in Role}:
+        raise HTTPException(422, "Bagian owner tidak valid.")
 
     data = None
     mime = None
@@ -70,13 +96,60 @@ async def create_revision(module_name: str = Form(...), bug_description: str = F
 
     proposal = RevisionProposal(module_name=module_name, bug_description=bug_description,
                                 expected_behavior=expected_behavior, image_data=data, image_mime=mime,
-                                reported_by_id=user.id)
+                                reported_by_id=user.id, owner_role=owner_role)
     db.add(proposal)
     db.flush()
     log_audit(db, user, "CREATE", "RevisionProposal", proposal.id, module_name)
     db.commit()
     db.refresh(proposal)
-    return proposal_out(proposal, user.name)
+    return proposal_out(proposal, user.name, user)
+
+
+@router.get("/{proposal_id}/history")
+def revision_history(proposal_id: int, db: Session = Depends(get_db),
+                     user: User = Depends(get_current_user)):
+    proposal = db.get(RevisionProposal, proposal_id)
+    if proposal is None:
+        raise HTTPException(404, "Usulan revisi tidak ditemukan.")
+    events = (db.query(RevisionStatusEvent, User.name)
+              .join(User, User.id == RevisionStatusEvent.changed_by_id)
+              .filter(RevisionStatusEvent.proposal_id == proposal_id)
+              .order_by(RevisionStatusEvent.id.asc()).all())
+    return [{"from_status": event.from_status, "to_status": event.to_status,
+             "note": event.note, "changed_by_name": name,
+             "created_at": event.created_at.isoformat() + "Z"} for event, name in events]
+
+
+@router.patch("/{proposal_id}/status")
+def change_revision_status(proposal_id: int, payload: StatusChange,
+                           db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    proposal = (db.query(RevisionProposal).filter(RevisionProposal.id == proposal_id)
+                .with_for_update().one_or_none())
+    if proposal is None:
+        raise HTTPException(404, "Usulan revisi tidak ditemukan.")
+    if payload.expected_status != proposal.status:
+        raise HTTPException(409, "Status sudah berubah. Muat ulang usulan sebelum melanjutkan.")
+    if payload.status not in allowed_next(proposal, user):
+        raise HTTPException(403, "Anda tidak berwenang mengubah status ke tahap ini.")
+    note = payload.note.strip()
+    if len(note) > 2000:
+        raise HTTPException(422, "Catatan maksimal 2000 karakter.")
+    if payload.status in {"CHECK", "TINJAU_ULANG"} and not note:
+        raise HTTPException(422, "Catatan wajib diisi untuk tahap ini.")
+    previous = proposal.status
+    proposal.status = payload.status
+    proposal.status_note = note or None
+    proposal.status_updated_at = datetime.utcnow()
+    proposal.status_updated_by_id = user.id
+    db.add(RevisionStatusEvent(proposal_id=proposal.id, from_status=previous,
+                               to_status=proposal.status, note=proposal.status_note,
+                               changed_by_id=user.id))
+    log_audit(db, user, "STATUS_CHANGE", "RevisionProposal", proposal.id,
+              f"{previous} -> {proposal.status}: {note}")
+    db.commit()
+    db.refresh(proposal)
+    reporter = db.get(User, proposal.reported_by_id)
+    return proposal_out(proposal, reporter.name, user)
 
 
 @router.get("/{proposal_id}/image")
