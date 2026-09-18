@@ -826,10 +826,10 @@ def update_delivery_confirmation(del_id:int, data:DeliveryConfirmUpdate, db:Sess
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ COO: ORDER CLOSING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class OrderClosingIn(BaseModel):
-    order_fk:int; customer_close_status:str="OPEN"; financial_close_status:str="OPEN"; order_close_status:str="OPEN"; close_date:Optional[date]=None; notes:Optional[str]=None
+    order_fk:int; customer_close_status:str="OPEN"; operational_close_status:str="OPEN"; financial_close_status:str="OPEN"; notes:Optional[str]=None
 
 class OrderClosingUpdate(BaseModel):
-    customer_close_status:Optional[str]=None; financial_close_status:Optional[str]=None; order_close_status:Optional[str]=None; close_date:Optional[date]=None; notes:Optional[str]=None
+    customer_close_status:Optional[str]=None; operational_close_status:Optional[str]=None; financial_close_status:Optional[str]=None; notes:Optional[str]=None
 
 @router.get("/coo/order-closing/{order_id}")
 def get_order_closing(order_id:int, db:Session=Depends(get_db), user=Depends(get_current_user)):
@@ -839,14 +839,14 @@ def get_order_closing(order_id:int, db:Session=Depends(get_db), user=Depends(get
     return rec
 
 @router.post("/coo/order-closing/{order_id}")
-def create_order_closing(order_id:int, data:OrderClosingIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER,models.Role.CFO_MANAGER))):
+def create_order_closing(order_id:int, data:OrderClosingIn, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER,models.Role.COO_MANAGER,models.Role.CFO_MANAGER))):
     data.order_fk = order_id
-    x=models.OrderClosing(**data.model_dump(), closed_by=user.name); db.add(x); commit_changes(db, user); db.refresh(x)
+    x=models.OrderClosing(**data.model_dump()); db.add(x); commit_changes(db, user); db.refresh(x)
 
     return x
 
 @router.patch("/coo/order-closing/{order_id}")
-def update_order_closing(order_id:int, data:OrderClosingUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER,models.Role.CFO_MANAGER))):
+def update_order_closing(order_id:int, data:OrderClosingUpdate, db:Session=Depends(get_db), user=Depends(require_roles(models.Role.CMO_MANAGER,models.Role.COO_MANAGER,models.Role.CFO_MANAGER))):
     rec = db.query(models.OrderClosing).filter(models.OrderClosing.order_fk==order_id).order_by(desc(models.OrderClosing.id)).first()
     if not rec: raise HTTPException(404,"No closing record for this order")
     return apply_update(rec, data, db, user, "OrderClosing")

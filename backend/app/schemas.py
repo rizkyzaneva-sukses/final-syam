@@ -83,6 +83,7 @@ class OrderOut(BaseModel):
     material_status: str
     shipment_status: str
     customer_close_status: str
+    operational_close_status: str
     financial_close_status: str
     overall_status: str
     flow_step: str = "ORDER"

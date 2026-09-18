@@ -50,6 +50,10 @@ def test_complete_workflow_separates_finance_ceo_delivery_and_closing(client, he
     oid = order["id"]
     shipment = call(client, headers, "POST", "/coo/shipments", "SHIPMENT_ADMIN", {"order_fk": oid, "shipment_no": "S1", "packing_status": "PACKED"})
     sid = shipment["id"]
+    call(client, headers, "POST", f"/coo/order-closing/{oid}", "COO_MANAGER", {"order_fk": oid, "operational_close_status": "CLOSED"}, expected=400)
+    call(client, headers, "POST", f"/coo/order-closing/{oid}", "CMO_SUPPORT", {"order_fk": oid, "operational_close_status": "CLOSED"}, expected=403)
+    call(client, headers, "GET", "/coo/order-closing", "CMO_SUPPORT", expected=403)
+    call(client, headers, "GET", f"/coo/order-closing/{oid}", "CMO_SUPPORT", expected=403)
     call(client, headers, "PATCH", f"/coo/shipments/{sid}", "SHIPMENT_ADMIN", {"finance_gate": "CLEAR"}, expected=403)
     call(client, headers, "PATCH", f"/cfo/shipments/{sid}/gate", "CFO_MANAGER", {"finance_gate": "CLEAR", "ceo_approval": "APPROVED"}, expected=403)
     gate = call(client, headers, "POST", f"/cfo/shipments/{sid}/gate", "CFO_MANAGER", {"action": "APPROVE"})
@@ -72,10 +76,17 @@ def test_complete_workflow_separates_finance_ceo_delivery_and_closing(client, he
     db.expire_all()
     assert db.get(m.Shipment, sid).status == "DELIVERED"
     call(client, headers, "POST", f"/coo/order-closing/{oid}", "CMO_MANAGER", {"order_fk": oid, "customer_close_status": "CLOSED"})
+    call(client, headers, "PATCH", f"/coo/order-closing/{oid}", "CMO_SUPPORT", {"operational_close_status": "CLOSED"}, expected=403)
+    call(client, headers, "PATCH", f"/coo/order-closing/{oid}", "CMO_MANAGER", {"operational_close_status": "CLOSED"}, expected=403)
+    call(client, headers, "PATCH", f"/coo/order-closing/{oid}", "CFO_MANAGER", {"operational_close_status": "CLOSED"}, expected=403)
+    call(client, headers, "PATCH", f"/coo/order-closing/{oid}", "COO_MANAGER", {"financial_close_status": "CLOSED"}, expected=403)
     call(client, headers, "PATCH", f"/coo/order-closing/{oid}", "CMO_MANAGER", {"financial_close_status": "CLOSED"}, expected=403)
     call(client, headers, "PATCH", f"/coo/order-closing/{oid}", "CFO_MANAGER", {"financial_close_status": "CLOSED"}, expected=400)
     call(client, headers, "POST", "/cfo/payments", "CFO_MANAGER", {"invoice_no": "I1", "amount": 75})
     result = call(client, headers, "PATCH", f"/coo/order-closing/{oid}", "CFO_MANAGER", {"financial_close_status": "CLOSED"})
+    assert result["order_close_status"] == "OPEN"
+    assert call(client, headers, "GET", "/orders", "CMO_SUPPORT")[0]["operational_close_status"] == "OPEN"
+    result = call(client, headers, "PATCH", f"/coo/order-closing/{oid}", "COO_MANAGER", {"operational_close_status": "CLOSED"})
     assert result["order_close_status"] == "CLOSED"
     db.expire_all()
     assert db.get(m.Order, oid).overall_status == "CLOSED"

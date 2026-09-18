@@ -217,6 +217,22 @@ def deliveries_ready(db, order):
     return True
 
 
+def operational_ready(db, order):
+    if order.order_type == m.OrderType.SAMPLE_ONLY:
+        if not samples_ready(db, order):
+            fail("Required sample work and buyer approval must be complete")
+        return
+    production_ready(db, order)
+    if not qc_ready(db, order):
+        fail("Final QC must pass for every article")
+    movements = db.query(m.ProductionMovement).join(m.Article, m.ProductionMovement.article_id == m.Article.id).filter(m.Article.order_fk == order.id).all()
+    if any(x.qty_in != x.qty_done + x.qty_reject for x in movements):
+        fail("Open production WIP must be reconciled before operational closing")
+    shipments = db.query(m.Shipment).filter_by(order_fk=order.id).all()
+    if not shipments or any(s.status not in ("SHIPPED", "DELIVERED") or s.packing_status != "PACKED" for s in shipments):
+        fail("Every shipment must be packed and physically dispatched")
+
+
 STATUSES = {
     m.Quotation: {"DRAFT", "SENT", "APPROVED", "REJECTED", "EXPIRED"},
     m.SampleRecord: {"PROCESS", "IN_PROCESS", "REVISION", "PENDING", "COMPLETED", "APPROVED", "REJECTED"},
@@ -502,7 +518,7 @@ def validate(db, obj, user, deleting=False):
         order = get(db, m.Order, obj.order_fk)
         if creating and db.query(m.OrderClosing).filter_by(order_fk=obj.order_fk).first():
             fail("Closing already exists; update the order closing", 409)
-        for field, owner in (("customer_close_status", "CMO_MANAGER"), ("financial_close_status", "CFO_MANAGER")):
+        for field, owner in (("customer_close_status", "CMO_MANAGER"), ("operational_close_status", "COO_MANAGER"), ("financial_close_status", "CFO_MANAGER")):
             value = getattr(obj, field)
             if value not in (None, "OPEN", "CLOSED"):
                 fail("Closing status must be OPEN or CLOSED")
@@ -514,15 +530,15 @@ def validate(db, obj, user, deleting=False):
                     fail("Required customer sample approvals are incomplete")
             elif not deliveries_ready(db, order):
                 fail("All shipments require customer delivery confirmation")
+        if obj.operational_close_status == "CLOSED":
+            operational_ready(db, order)
         total, paid = invoices_total(db, order.id)
         if obj.financial_close_status == "CLOSED" and (total <= 0 or paid < total or not invoices_reconciled(db, order.id)):
             fail("Financial closing requires invoices with zero outstanding")
-        both = obj.customer_close_status == obj.financial_close_status == "CLOSED"
-        if obj.order_close_status == "CLOSED" and not both:
-            fail("Both customer and financial closing are required")
-        obj.order_close_status = "CLOSED" if both else "OPEN"
-        obj.close_date = date.today() if both else None
-        obj.closed_by = user.name
+        all_closed = obj.customer_close_status == obj.operational_close_status == obj.financial_close_status == "CLOSED"
+        obj.order_close_status = "CLOSED" if all_closed else "OPEN"
+        obj.close_date = date.today() if all_closed else None
+        obj.closed_by = user.name if all_closed else None
     elif isinstance(obj, m.Task) and not creating:
         if role(user) != "CEO":
             if obj.assigned_to_id != user.id or changed - {"status"}:
@@ -563,12 +579,14 @@ def sync_order(db, order_id):
     closing = db.query(m.OrderClosing).filter_by(order_fk=order_id).first()
     if closing:
         order.customer_close_status = closing.customer_close_status
+        order.operational_close_status = closing.operational_close_status
         order.financial_close_status = closing.financial_close_status
         if closing.order_close_status == "CLOSED":
             order.overall_status = "CLOSED"
             order.flow_step = "CLOSED"
     else:
         order.customer_close_status = "OPEN"
+        order.operational_close_status = "OPEN"
         order.financial_close_status = "OPEN"
     if order.flow_step != "CLOSED":
         order.overall_status = "COMPLETED" if order.flow_step == "DELIVERED" else "ACTIVE" if order.flow_step not in (None,"ORDER","INVOICE") else "NEW"

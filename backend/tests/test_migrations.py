@@ -18,7 +18,7 @@ def test_fresh_database_migrates_to_head():
                                  "upgrade", "head"], cwd=backend, env=env, capture_output=True, text=True)
         assert result.returncode == 0, result.stdout + result.stderr
         with closing(sqlite3.connect(database)) as db:
-            assert db.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "0008_revision_status"
+            assert db.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "0009_operational_closing"
             names = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             assert {"orders", "quotations", "bom_items", "material_consumptions", "production_cost_entries", "cost_reviews", "qc_records", "revision_proposals", "revision_status_events"} <= names
 
@@ -40,6 +40,18 @@ def test_existing_revisions_and_images_survive_status_migration():
             db.execute("""INSERT INTO revision_proposals
                        (id, module_name, bug_description, expected_behavior, image_data, image_mime, reported_by_id, created_at)
                        VALUES (1, 'CMO-023 — CMO Support — Delivery', 'Bug asli', 'Hasil asli', ?, 'image/png', 1, '2026-09-16 00:00:00')""", (image,))
+            db.execute("""INSERT INTO orders
+                       (id, order_id, buyer, order_type, order_date, finance_gate_status, finance_status,
+                        material_status, shipment_status, customer_close_status, financial_close_status,
+                        overall_status, flow_step, created_at, updated_at)
+                       VALUES (1, 'SO-LEGACY', 'Buyer', 'SAMPLE_ONLY', '2026-09-16', 'APPROVED', 'PAID',
+                               'READY', 'DELIVERED', 'CLOSED', 'CLOSED', 'CLOSED', 'CLOSED',
+                               '2026-09-16 00:00:00', '2026-09-16 00:00:00')""")
+            db.execute("""INSERT INTO order_closings
+                       (id, order_fk, customer_close_status, financial_close_status, order_close_status,
+                        closed_by, close_date, created_at, updated_at)
+                       VALUES (1, 1, 'CLOSED', 'CLOSED', 'CLOSED', 'Cecep', '2026-09-16',
+                               '2026-09-16 00:00:00', '2026-09-16 00:00:00')""")
             db.commit()
         after = subprocess.run(command + ["head"], cwd=backend, env=env,
                                capture_output=True, text=True)
@@ -49,3 +61,5 @@ def test_existing_revisions_and_images_survive_status_migration():
                               status, owner_role FROM revision_proposals WHERE id = 1""").fetchone()
             assert row == ("CMO-023 — CMO Support — Delivery", "Bug asli", "Hasil asli",
                            image, "REVISI", "CMO_SUPPORT")
+            assert db.execute("SELECT operational_close_status, overall_status FROM orders WHERE id=1").fetchone() == ("LEGACY_UNVERIFIED", "CLOSED")
+            assert db.execute("SELECT operational_close_status, order_close_status FROM order_closings WHERE id=1").fetchone() == ("LEGACY_UNVERIFIED", "CLOSED")

@@ -185,8 +185,8 @@ class FlowEngine:
             elif step == "CLOSED":
                 rec = db.query(models.OrderClosing).filter_by(order_fk=order.id).first()
                 total, paid = w.invoices_total(db, order.id)
-                if not rec or rec.customer_close_status != "CLOSED" or rec.financial_close_status != "CLOSED" or rec.order_close_status != "CLOSED" or total <= 0 or paid < total:
-                    return False, "Separate customer/financial closing with zero outstanding required"
+                if not rec or rec.customer_close_status != "CLOSED" or rec.operational_close_status != "CLOSED" or rec.financial_close_status != "CLOSED" or rec.order_close_status != "CLOSED" or total <= 0 or paid < total:
+                    return False, "Customer, operational and financial closing with zero outstanding required"
         except HTTPException as exc:
             return False, str(exc.detail)
         return True, ""
@@ -204,7 +204,7 @@ class FlowEngine:
             "FOLLOW_UP": ("CMO_MANAGER",), "SPK": ("CMO_MANAGER",),
             "PRODUCTION": ("COO_MANAGER",), "QC": ("COO_MANAGER", "PRODUCTION_PIC"),
             "SHIPMENT": ("COO_MANAGER", "SHIPMENT_ADMIN"), "DELIVERED": ("CMO_MANAGER",),
-            "CLOSED": ("CMO_MANAGER", "CFO_MANAGER"),
+            "CLOSED": ("CMO_MANAGER", "COO_MANAGER", "CFO_MANAGER"),
         }
         require(user, *owners.get(target_step, ()))
         ok, reason = FlowEngine.can_transition(order, target_step)

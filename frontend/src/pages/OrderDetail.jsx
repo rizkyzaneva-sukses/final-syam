@@ -157,8 +157,9 @@ export default function OrderDetail(){
         <h2>Closure</h2>
         <div className="closure">
           <span>Customer Closed: <b>{o.customer_close_status||'OPEN'}</b></span>
+          <span>Operational Closed: <b>{o.operational_close_status==='LEGACY_UNVERIFIED'?'Belum diverifikasi (data lama)':o.operational_close_status||'OPEN'}</b></span>
           <span>Financial Closed: <b>{o.financial_close_status||'OPEN'}</b></span>
-          <span>Order Closed hanya setelah kedua kondisi terpenuhi.</span>
+          <span>Order Closed hanya setelah ketiga kondisi terpenuhi.</span>
         </div>
       </section>
     </div>
